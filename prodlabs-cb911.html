@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProdLabs — CB911</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4ff;--sur:#fff;--s2:#e8eefe;--bor:#c7d2f7;--ink:#0f1a3a;--i2:#3a4a7a;--i3:#7a88b8;
+  --re:#1a3aff;--reld:#eef0ff;--relm:#c7d2f7;--redk:#0a2acc;
+  --gr:#16a34a;--grd:#dcfce7;--am:#d97706;--amd:#fef3c7;--pu:#1a3aff;--pud:#eef0ff;--pum:#c7d2f7;
+  --bl:#2563eb;--bld:#dbeafe;--r:10px;--rl:14px
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+#load{position:fixed;inset:0;background:#0f1a3a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+.logo{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.03em;margin-bottom:1.5rem}.logo b{color:#4f8aff}
+.spin{width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:#4f8aff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#login{display:none;min-height:100vh;align-items:center;justify-content:center;padding:1.5rem;background:var(--bg)}
+.lcard{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:2.5rem;width:100%;max-width:420px;box-shadow:0 4px 20px rgba(26,58,255,.10)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:2rem}
+.bico{width:36px;height:36px;background:var(--re);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.bico svg{width:18px;height:18px;fill:#fff}
+.bname{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.lcard h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.sub{color:var(--i2);font-size:13px;margin-bottom:1.75rem}
+.flbl{font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;display:block}
+.finp{width:100%;padding:10px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:14px}
+.finp:focus{border-color:var(--re);box-shadow:0 0 0 3px var(--pud)}
+.err{display:none;font-size:12px;color:var(--redk);margin-bottom:10px;font-weight:500;background:var(--reld);padding:8px 10px;border-radius:7px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:var(--r);border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn:active{transform:scale(.975)}.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.bp{background:var(--re);color:#fff;box-shadow:0 2px 8px rgba(26,58,255,.25)}.bp:hover:not(:disabled){background:var(--redk)}
+.bg{background:transparent;color:var(--i2);border:1.5px solid var(--bor)}.bg:hover:not(:disabled){background:var(--s2)}.topbar .bg{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.2)}.topbar .bg:hover:not(:disabled){background:rgba(255,255,255,.1)}
+.bf{width:100%}.bsm{padding:7px 13px;font-size:12px}
+#app{display:none}
+.topbar{height:56px;background:var(--ink);border-bottom:2px solid #4f8aff;display:flex;align-items:center;padding:0 1.5rem;gap:10px;position:sticky;top:0;z-index:200}
+.tbrand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;letter-spacing:-.02em;margin-right:auto;color:#fff}
+.tbrand .bico{width:28px;height:28px;border-radius:8px}.tbrand .bico svg{width:14px;height:14px}
+.badge{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.badm{background:var(--re);color:#fff}.busr{background:var(--pud);color:var(--re)}
+.tbu{font-size:13px;color:rgba(255,255,255,.6);font-weight:500}
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.slive{background:#4f8aff}.sload{background:var(--am);animation:pu 1s infinite}.serr{background:#ff4444}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.4}}
+.stxt{font-size:12px;color:rgba(255,255,255,.5);font-weight:500}
+.tabs{background:var(--sur);border-bottom:2px solid var(--bor);padding:0 1.5rem;display:flex}
+.tab{padding:12px 16px;font-size:13px;font-weight:600;color:var(--i3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--re)}.tab.on{color:var(--re);border-bottom-color:var(--re);border-bottom-width:3px}
+.main{padding:1.5rem;max-width:1400px;margin:0 auto}
+.fbar{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:1rem 1.25rem;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.25rem}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.07em}
+.fg select,.fg input[type=date],.fg input[type=text]{padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);background:var(--sur);color:var(--ink);font-family:inherit;font-size:13px;outline:none;min-width:120px}
+.fg select:focus,.fg input:focus{border-color:var(--re)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1.25rem}
+.mc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:1.1rem 1.2rem}
+.mcl{font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.mcv{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.03em;line-height:1}
+.mcs{font-size:11px;color:var(--i3);margin-top:5px}
+.mcr{border-color:var(--relm);background:var(--reld)}.mcr .mcv{color:var(--redk)}.mcr .mcl{color:var(--re)}
+.mcg{border-color:var(--pum);background:#f0f4ff}.mcg .mcv{color:var(--re)}.mcg .mcl{color:var(--re)}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;margin-bottom:1.25rem}
+.ch{padding:.9rem 1.25rem;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.ct{font-size:14px;font-weight:700}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.cgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.cw{position:relative;padding:1.25rem}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg)}
+th{padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bor);white-space:nowrap}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--bor);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.pb{background:var(--pud);color:var(--re)}.pg{background:var(--pud);color:var(--re)}.pa{background:var(--amd);color:var(--am)}.pp{background:var(--pud);color:var(--re)}.pr{background:var(--reld);color:var(--redk)}
+.lbr{font-size:16px;font-weight:700;color:var(--i3)}.r1{color:#ca8a04}.r2{color:#94a3b8}.r3{color:#a16207}
+.barbg{background:var(--s2);border-radius:4px;height:6px;width:90px;display:inline-block;vertical-align:middle}
+.barfg{height:100%;background:var(--re);border-radius:4px}
+.seg{display:flex;gap:4px;background:var(--s2);border-radius:var(--r);padding:3px}
+.segb{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--i2);background:transparent;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
+.segb.on{background:var(--sur);color:var(--re)}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 18px;border-radius:var(--r);font-size:13px;font-weight:600;display:none;z-index:9999;animation:ti .2s ease}
+.tok{background:var(--ink);color:#fff}.tgood{background:var(--re);color:#fff}.tbad{background:#cc2200;color:#fff}
+@keyframes ti{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.empty{text-align:center;padding:3rem;color:var(--i2)}.empty h3{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.step{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.stepn{width:24px;height:24px;border-radius:50%;background:var(--re);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.stept{font-size:13px;color:var(--i2);line-height:1.5}.stept strong{color:var(--ink)}
+.urow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bor)}
+.urow:last-child{border-bottom:none}
+.uname{font-weight:600;font-size:13px}
+.urole{font-size:11px;color:var(--i2);font-family:monospace;margin-top:1px}
+.btny{background:var(--reld);border:1px solid var(--relm);color:var(--redk);padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.ch-sel{padding:4px 7px;border:1.5px solid var(--bor);border-radius:7px;font-size:11px;font-family:inherit;outline:none;background:var(--sur);color:var(--ink);cursor:pointer}
+.ch-sel:focus{border-color:var(--re)}
+.pw-blur{filter:blur(5px);transition:filter 0.2s;cursor:pointer;user-select:none;font-family:monospace;font-size:11px;}
+.btny:hover{background:var(--relm)}
+.sbar{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:.75rem 1.25rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.sbar input,.sbar select{padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:13px;outline:none;background:var(--sur)}
+.sbar input{flex:1;min-width:180px;background:var(--bg)}.sbar input:focus{border-color:var(--re);background:#fff}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--sur);border-radius:var(--rl);padding:2rem;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.15);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--bor)}
+.modal label{display:block;font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.modal input,.modal select{width:100%;padding:9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:12px}
+.modal input:focus,.modal select:focus{border-color:var(--re)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.stitle{font-size:15px;font-weight:800;margin-bottom:.75rem;margin-top:1.5rem;padding-bottom:.5rem;border-bottom:1px solid var(--bor)}
+.stitle:first-child{margin-top:0}
+.team-badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.04em;background:var(--pud);color:var(--re);margin-left:6px}
+.goal-bar-wrap{background:var(--s2);border-radius:4px;height:8px;flex:1;overflow:hidden}
+.goal-bar-fill{height:100%;border-radius:4px;transition:width .4s;background:var(--re)}
+@media(max-width:768px){.cgrid,.cgrid3{grid-template-columns:1fr}.tbu{display:none}.main{padding:1rem}}
+</style>
+</head>
+<body>
+
+<div id="load"><div class="logo">Prod<b>Labs</b></div><div class="spin"></div></div>
+
+<div id="login" style="display:flex">
+  <div class="lcard">
+    <div class="brand">
+      <div class="bico"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+      <span class="bname">ProdLabs</span>
+    </div>
+    <h1>Welcome back</h1>
+    <p class="sub">Sign in to your CB911 productivity dashboard</p>
+    <span class="flbl">Username</span>
+    <input type="text" id="l-user" class="finp" placeholder="Enter your username" autocomplete="username">
+    <span class="flbl">Password</span>
+    <div style="position:relative;margin-bottom:14px">
+      <input type="password" id="l-pass" class="finp" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="margin-bottom:0;padding-right:40px">
+      <button type="button" onclick="toggleEye('l-pass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--i3);padding:4px;font-size:16px">👁</button>
+    </div>
+    <div class="err" id="lerr">Incorrect username or password.</div>
+    <button class="btn bp bf" onclick="doLogin()">Sign In →</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="tbrand">
+      <div class="bico"><svg viewBox="0 0 24 24" fill="white"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+      ProdLabs <span style="font-size:12px;color:rgba(255,255,255,.4);font-weight:500;margin-left:2px">CB911</span> <span class="badge" id="vbadge"></span>
+    </div>
+    <span class="sdot" id="sdot"></span><span class="stxt" id="stxt" style="margin-right:8px"></span>
+    <span class="tbu" id="tbu"></span>
+    <button class="btn bg bsm" id="rbtn" onclick="doRefresh()">↻ Refresh</button>
+    <button class="btn bg bsm" onclick="logout()">Sign out</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="goTab('dashboard')">Dashboard</button>
+    <button class="tab" onclick="goTab('import')">Import Data</button>
+    <button class="tab" id="goals-tab-btn" onclick="goTab('goals')">Goals</button>
+    <button class="tab adm-only" style="display:none" onclick="goTab('history')">History</button>
+    <button class="tab adm-only" style="display:none" onclick="goTab('settings')">Settings</button>
+  </div>
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard">
+      <div class="fbar">
+        <div class="fg"><label>From</label><input type="date" id="ff"></div>
+        <div class="fg"><label>To</label><input type="date" id="ft"></div>
+        <div class="fg adm-only" style="display:none"><label>Employee</label><select id="fu"><option value="">Everyone</option></select></div>
+        <div class="fg adm-only" style="display:none"><label>Team</label><select id="fteam"><option value="">All teams</option></select></div>
+        <div class="fg"><label>Role</label><select id="fr"><option value="">All roles</option></select></div>
+        <div class="fg member-team-filter-wrap" style="display:none"><label>My Team</label><select id="fteam-member"><option value="">All</option></select></div>
+        <div class="fg"><label>Client</label><select id="fcl"><option value="">All clients</option></select></div>
+        <div class="fg" style="margin-left:auto"><label>&nbsp;</label><div style="display:flex;gap:6px"><button class="btn bp" onclick="applyF()">Apply</button><button class="btn bg" onclick="clearF()">Clear</button></div></div>
+      </div>
+
+      <div class="metrics" id="metrics"></div>
+
+      <div class="cgrid">
+        <div class="card"><div class="ch"><span class="ct">Claims over time</span><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-cht" onchange="renderChartById('cht')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-cht" onchange="renderChartById('cht')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-cht" onchange="renderChartById('cht')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-cht" onchange="renderChartById('cht')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('cht')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div></div><div class="cw" style="height:260px"><canvas id="cht"></canvas></div></div>
+        <div class="card"><div class="ch"><span class="ct">Amount over time</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chamt" onchange="renderChartById('chamt')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chamt" onchange="renderChartById('chamt')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chamt" onchange="renderChartById('chamt')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chamt" onchange="renderChartById('chamt')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chamt')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:260px"><canvas id="chamt"></canvas></div></div>
+      </div>
+
+      <div class="cgrid">
+        <div class="card"><div class="ch"><span class="ct">By role</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chro" onchange="renderChartById('chro')" class="ch-sel"><option value="">All teams</option></select> <input type="date" id="ct-from-chro" onchange="renderChartById('chro')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chro" onchange="renderChartById('chro')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chro')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:240px"><canvas id="chro"></canvas></div></div>
+        <div class="card"><div class="ch"><span class="ct">By client</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chcl" onchange="renderChartById('chcl')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chcl" onchange="renderChartById('chcl')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chcl" onchange="renderChartById('chcl')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chcl" onchange="renderChartById('chcl')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chcl')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:240px"><canvas id="chcl"></canvas></div></div>
+      </div>
+
+      <div class="cgrid">
+        <div class="card"><div class="ch"><span class="ct">By action taken</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chact" onchange="renderChartById('chact')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chact" onchange="renderChartById('chact')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chact" onchange="renderChartById('chact')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chact" onchange="renderChartById('chact')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chact')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:220px"><canvas id="chact"></canvas></div></div>
+        <div class="card"><div class="ch"><span class="ct">By payer</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chpay" onchange="renderChartById('chpay')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chpay" onchange="renderChartById('chpay')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chpay" onchange="renderChartById('chpay')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chpay" onchange="renderChartById('chpay')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chpay')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:220px"><canvas id="chpay"></canvas></div></div>
+      </div>
+
+      <!-- Admin team charts -->
+      <div id="team-charts" style="display:none">
+        <div class="cgrid3">
+          <div class="card"><div class="ch"><span class="ct">Claims by employee</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chusr" onchange="renderChartById('chusr')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chusr" onchange="renderChartById('chusr')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chusr" onchange="renderChartById('chusr')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chusr" onchange="renderChartById('chusr')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chusr')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:240px"><canvas id="chusr"></canvas></div></div>
+          <div class="card"><div class="ch"><span class="ct">Claim Worth by employee</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-churev" onchange="renderChartById('churev')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-churev" onchange="renderChartById('churev')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-churev" onchange="renderChartById('churev')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-churev" onchange="renderChartById('churev')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('churev')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:240px"><canvas id="churev"></canvas></div></div>
+          <div class="card"><div class="ch"><span class="ct">Claims by team</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-role-chteam" onchange="renderChartById('chteam')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chteam" onchange="renderChartById('chteam')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chteam" onchange="renderChartById('chteam')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chteam')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:240px"><canvas id="chteam"></canvas></div></div>
+        </div>
+        <div class="cgrid">
+          <div class="card"><div class="ch"><span class="ct">Avg claims/day per employee</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-team-chavg" onchange="renderChartById('chavg')" class="ch-sel"><option value="">All teams</option></select> <select id="ct-role-chavg" onchange="renderChartById('chavg')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chavg" onchange="renderChartById('chavg')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chavg" onchange="renderChartById('chavg')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chavg')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:220px"><canvas id="chavg"></canvas></div></div>
+          <div class="card"><div class="ch"><span class="ct">Claim Worth by team</span><div style="display:flex;gap:5px;flex-wrap:wrap"><select id="ct-role-chteamrev" onchange="renderChartById('chteamrev')" class="ch-sel"><option value="">All roles</option></select> <input type="date" id="ct-from-chteamrev" onchange="renderChartById('chteamrev')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <input type="date" id="ct-to-chteamrev" onchange="renderChartById('chteamrev')" class="ch-sel" style="font-size:11px;padding:4px 6px"> <button onclick="clearChartFilter('chteamrev')" class="btny" style="font-size:11px;padding:3px 8px">✕</button></div></div><div class="cw" style="height:220px"><canvas id="chteamrev"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct" id="lb-title">Leaderboard</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="lbperiod" onchange="renderLB()" style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:12px;font-family:inherit;outline:none">
+              <option value="all">All time</option>
+              <option value="month">This month</option>
+              <option value="week">This week</option>
+            </select>
+            <select id="lbscope" onchange="renderLB()" style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:12px;font-family:inherit;outline:none">
+              <option value="my-team">My Team</option>
+              <option value="overall">Overall</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>Rank</th><th>Name</th><th>Team</th><th>Claims</th><th>Claim Worth</th><th>Days</th><th>Avg/day</th><th>Top Role</th></tr></thead><tbody id="lbtbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- Search + Records -->
+      <div class="sbar">
+        <span style="font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap">Search</span>
+        <select id="search-field"><option value="all">All fields</option><option value="id">Claim ID</option><option value="visit_id">Visit ID</option><option value="payer">Payer</option><option value="client">Client</option><option value="role">Role</option><option value="action">Action</option><option value="user">Employee</option></select>
+        <input type="text" id="search-input" placeholder="Type to search..." oninput="renderTable(getF())">
+        <button class="btn bg bsm" onclick="document.getElementById('search-input').value='';renderTable(getF())">Clear</button>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Records</span><span id="rcnt" style="font-size:12px;color:var(--i3);font-weight:600"></span></div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>Date</th><th id="emp-col" style="display:none">Employee</th><th>Claim / Check ID</th><th>Visit ID</th><th>DOS</th><th>Payer</th><th>Amount</th><th>Client</th><th>Role</th><th>Action</th><th>Providers</th></tr></thead><tbody id="tbody"></tbody></table>
+        </div>
+        <div id="records-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bor);font-size:12px;color:var(--i2);flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span>Rows per page:</span>
+            <select id="records-per-page" onchange="recordsPage=0;renderTable(getF())" style="padding:4px 8px;border:1.5px solid var(--bor);border-radius:6px;font-size:12px;font-family:inherit;outline:none">
+              <option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="250">250</option>
+            </select>
+          </div>
+          <div id="records-page-info" style="font-weight:600"></div>
+          <div style="display:flex;gap:4px;align-items:center" id="records-page-btns"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORT -->
+    <div id="tab-import" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
+      <div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:6px">Import My Data</div>
+        <p style="font-size:13px;color:var(--i2);margin-bottom:1.5rem;line-height:1.6" id="impdesc"></p>
+        <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:13px;font-weight:700;margin-bottom:1rem">How to paste your data:</div>
+          <div class="step"><div class="stepn">1</div><div class="stept">Open your spreadsheet in <strong>Google Sheets or Excel</strong></div></div>
+          <div class="step"><div class="stepn">2</div><div class="stept">Select all data (<strong>Ctrl+A</strong> / <strong>Cmd+A</strong>)</div></div>
+          <div class="step"><div class="stepn">3</div><div class="stept">Copy (<strong>Ctrl+C</strong> / <strong>Cmd+C</strong>)</div></div>
+          <div class="step"><div class="stepn">4</div><div class="stept">Paste below and click <strong>Upload to Dashboard</strong></div></div>
+        </div>
+        <div style="font-size:12px;color:var(--i3);margin-bottom:8px;font-weight:600">WORKS WITH ALL 3 SHEETS: Claims · Coding · Credentialing — paste one sheet at a time</div>
+        <div style="font-size:12px;color:var(--am);background:var(--amd);border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:500">
+          ⚠️ <strong>Important — Date format:</strong> Please format your Date column as <strong>YYYY-MM-DD</strong> (e.g. 2026-04-06) before pasting. In Excel: select the Date column → Format Cells → Custom → type <strong>YYYY-MM-DD</strong>. In Google Sheets: Format → Number → Custom date and time → <strong>YYYY-MM-DD</strong>.
+        </div>
+        <textarea id="csvin" rows="10" style="width:100%;padding:10px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:'Courier New',monospace;font-size:12px;resize:vertical;outline:none;color:var(--ink);background:var(--sur);line-height:1.7;margin-bottom:8px" placeholder="Paste your spreadsheet data here..."></textarea>
+        <div id="pcount" style="font-size:12px;color:var(--i3);margin-bottom:1rem;min-height:18px"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn bp" id="ibtn" onclick="doImport()">Upload to Dashboard</button>
+          <button class="btn bg" onclick="doClear()">Clear</button>
+        </div>
+        <div id="istat" style="margin-top:10px;font-size:13px;min-height:20px"></div>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:1rem">Import History</div>
+        <div class="card" style="margin-bottom:0">
+          <div class="ch"><span class="ct">By Member</span><button class="btn bg bsm" onclick="renderImportHistory()">↻</button></div>
+          <div id="import-history-list" style="padding:.5rem 0">
+            <div style="padding:1rem;text-align:center;color:var(--i3);font-size:12px">Loading...</div>
+          </div>
+          <div id="ih-pagination" style="display:none;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--bor)"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- GOALS TAB -->
+    <div id="tab-goals" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem">
+        <div>
+          <div style="font-size:20px;font-weight:800">Productivity Goals</div>
+          <div id="goals-member-label" style="font-size:13px;color:var(--i2);margin-top:2px"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="goals-view-user" onchange="renderGoals()" style="display:none;padding:8px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+            <option value="">All Members</option>
+          </select>
+          <select id="goals-period" onchange="renderGoals()" style="padding:8px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+            <option value="custom">Custom range</option>
+          </select>
+          <input type="date" id="goals-from" style="display:none;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none" onchange="renderGoals()">
+          <input type="date" id="goals-to" style="display:none;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none" onchange="renderGoals()">
+          <button class="btn bg bsm adm-only" style="display:none" onclick="openModal('modal-goals-settings')">⚙ Set Goals</button>
+        </div>
+      </div>
+      <div id="goals-summary" class="metrics" style="margin-bottom:1.25rem"></div>
+      <div id="goals-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem;margin-bottom:1.25rem"></div>
+      <div id="goals-table-wrap" class="card" style="display:none">
+        <div class="ch"><span class="ct">Team Weekly Summary</span></div>
+        <div style="overflow-x:auto"><table><thead id="goals-table-head"></thead><tbody id="goals-table-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem">
+        <div>
+          <div style="font-size:20px;font-weight:800">Archive History</div>
+          <div style="font-size:13px;color:var(--i2);margin-top:2px">Bi-monthly snapshots — download as PDF or CSV</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="hist-team" onchange="renderHistory()" style="padding:8px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none"><option value="">All teams</option></select>
+          <select id="hist-member" onchange="renderHistory()" style="padding:8px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none"><option value="">All members</option></select>
+        </div>
+      </div>
+      <div id="history-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" style="display:none">
+      <div style="font-size:20px;font-weight:800;margin-bottom:1.5rem">Settings</div>
+      <div class="cgrid">
+        <div>
+          <div class="stitle">Team Members</div>
+          <div class="card" style="display:flex;flex-direction:column">
+            <div class="ch">
+              <span class="ct">Members</span>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <select id="member-team-filter" onchange="memberPage=0;renderUserList()" style="padding:6px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:12px;font-family:inherit;outline:none"><option value="">All teams</option></select>
+                <button class="btn bp bsm" onclick="openModal('modal-add-user')">+ Add Member</button>
+              </div>
+            </div>
+            <div id="user-list" style="flex:1"></div>
+            <div id="user-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bor);font-size:12px;color:var(--i2)"></div>
+          </div>
+        </div>
+        <div>
+          <div class="stitle">Admin Accounts</div>
+          <div class="card" style="display:flex;flex-direction:column">
+            <div class="ch"><span class="ct">Admins</span><button class="btn bp bsm" onclick="openModal('modal-add-admin')">+ Add Admin</button></div>
+            <div id="admin-list" style="flex:1"></div>
+            <div id="admin-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bor);font-size:12px;color:var(--i2)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="stitle">Experience Levels & Goals</div>
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="ch"><span class="ct">Experience Levels</span><button class="btn bp bsm" onclick="openModal('modal-add-level')">+ Add Level</button></div>
+        <div id="level-list"></div>
+      </div>
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="ch"><span class="ct">Goals per Level &amp; Role</span><div style="font-size:11px;color:var(--i3)">Daily claim targets</div></div>
+        <div id="goals-matrix" style="overflow-x:auto;padding:1rem"></div>
+      </div>
+      <div class="cgrid">
+        <div>
+          <div class="stitle">Teams</div>
+          <div class="card">
+            <div class="ch"><span class="ct">Teams</span><button class="btn bp bsm" onclick="openModal('modal-add-team')">+ Add Team</button></div>
+            <div id="team-list"></div>
+          </div>
+          <div class="stitle">Leaderboard Settings</div>
+          <div class="card">
+            <div style="padding:1.25rem">
+              <div style="font-weight:600;font-size:13px;margin-bottom:6px">Allow members to see Overall leaderboard</div>
+              <div style="font-size:12px;color:var(--i2);margin-bottom:12px">If off, members only see their team's leaderboard</div>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+                <input type="checkbox" id="allow-overall" onchange="toggleOverallLB()" style="width:18px;height:18px;accent-color:var(--re)">
+                Allow Overall View
+              </label>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="stitle">Role Types</div>
+          <div class="card">
+            <div class="ch"><span class="ct">Roles</span><button class="btn bp bsm" onclick="openModal('modal-add-role')">+ Add Role</button></div>
+            <div id="role-list"></div>
+            <div id="role-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bor);font-size:12px;color:var(--i2)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal">
+    <h3>Add Team Member</h3>
+    <label>Display Name (must match spreadsheet)</label>
+    <input type="text" id="nu-name" placeholder="e.g. R.Fullem">
+    <label>Username</label>
+    <input type="text" id="nu-user" placeholder="e.g. rfullem">
+    <label>Password</label>
+    <div style="position:relative;margin-bottom:12px">
+      <input type="password" id="nu-pass" placeholder="set a password" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:0">
+      <button type="button" onclick="toggleEye('nu-pass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--i3);padding:4px;font-size:16px">👁</button>
+    </div>
+    <label>Team</label>
+    <select id="nu-team"><option value="">No team</option></select>
+    <label>Track in leaderboard?</label>
+    <select id="nu-tracked"><option value="yes">Yes</option><option value="no">No</option></select>
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-add-user')">Cancel</button>
+      <button class="btn bp bsm" onclick="addUser()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-admin">
+  <div class="modal">
+    <h3>Add Admin Account</h3>
+    <label>Display Name</label>
+    <input type="text" id="na-display" placeholder="e.g. John Smith">
+    <label>Username</label>
+    <input type="text" id="na-user" placeholder="e.g. jsmith">
+    <label>Default Team View on Login</label>
+    <select id="na-team"><option value="">All teams</option></select>
+    <label>Password</label>
+    <div style="position:relative;margin-bottom:12px">
+      <input type="password" id="na-pass" placeholder="set a password" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:0">
+      <button type="button" onclick="toggleEye('na-pass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--i3);padding:4px;font-size:16px">👁</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-add-admin')">Cancel</button>
+      <button class="btn bp bsm" onclick="addAdmin()">Add Admin</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-admin">
+  <div class="modal">
+    <h3>Edit Admin Account</h3>
+    <input type="hidden" id="ea-idx">
+    <label>Display Name</label>
+    <input type="text" id="ea-display" placeholder="e.g. John Smith">
+    <label>Username</label>
+    <input type="text" id="ea-user" placeholder="e.g. jsmith">
+    <label>Default Team on Login</label>
+    <select id="ea-team"><option value="">All teams (no auto-filter)</option></select>
+    <label>New Password (leave blank to keep current)</label>
+    <div style="position:relative;margin-bottom:12px">
+      <input type="password" id="ea-pass" placeholder="leave blank to keep" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:0">
+      <button type="button" onclick="toggleEye('ea-pass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--i3);padding:4px;font-size:16px">👁</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-edit-admin')">Cancel</button>
+      <button class="btn bp bsm" onclick="saveEditAdmin()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-level">
+  <div class="modal">
+    <h3>Add Experience Level</h3>
+    <label>Level Name</label>
+    <input type="text" id="nl-name" placeholder="e.g. Junior, Senior, Lead">
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-add-level')">Cancel</button>
+      <button class="btn bp bsm" onclick="addLevel()">Add Level</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-team">
+  <div class="modal">
+    <h3>Add Team</h3>
+    <label>Team Name</label>
+    <input type="text" id="nt-name" placeholder="e.g. Clearwater">
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-add-team')">Cancel</button>
+      <button class="btn bp bsm" onclick="addTeam()">Add Team</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-role">
+  <div class="modal">
+    <h3>Add Role Type</h3>
+    <label>Role Name</label>
+    <input type="text" id="nr-name" placeholder="e.g. Denial">
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-add-role')">Cancel</button>
+      <button class="btn bp bsm" onclick="addRole()">Add Role</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-user">
+  <div class="modal">
+    <h3>Edit Member</h3>
+    <input type="hidden" id="eu-idx">
+    <label>Display Name</label>
+    <input type="text" id="eu-name">
+    <label>Username</label>
+    <input type="text" id="eu-user">
+    <label>New Password (leave blank to keep current)</label>
+    <div style="position:relative;margin-bottom:12px">
+      <input type="password" id="eu-pass" placeholder="leave blank to keep" style="width:100%;padding:9px 40px 9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:0">
+      <button type="button" onclick="toggleEye('eu-pass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--i3);padding:4px;font-size:16px">👁</button>
+    </div>
+    <label>Team</label>
+    <select id="eu-team"><option value="">No team</option></select>
+    <label>Track in leaderboard?</label>
+    <select id="eu-tracked"><option value="yes">Yes</option><option value="no">No</option></select>
+    <label>Experience Level</label>
+    <select id="eu-level"><option value="">— No level assigned —</option></select>
+    <label>Daily Goal Override <span style="font-size:11px;color:var(--i3);font-weight:400">(0 = use level/role default)</span></label>
+    <input type="number" id="eu-goal-override" min="0" placeholder="0" style="width:100%;padding:9px 12px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--ink);background:var(--sur);outline:none;margin-bottom:14px">
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-edit-user')">Cancel</button>
+      <button class="btn bp bsm" onclick="saveEditUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-goals-settings">
+  <div class="modal" style="max-width:500px">
+    <h3>Set Productivity Goals</h3>
+    <p style="font-size:12px;color:var(--i2);margin-bottom:1rem">Set daily claim targets per role. Leave 0 to skip tracking for that role.</p>
+    <div id="goals-form"></div>
+    <div class="modal-actions">
+      <button class="btn bg bsm" onclick="closeModal('modal-goals-settings')">Cancel</button>
+      <button class="btn bp bsm" onclick="saveGoals()">Save Goals</button>
+    </div>
+  </div>
+</div>
+
+<!-- GOAL DETAIL OVERLAY -->
+<div id="goal-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,26,58,.65);z-index:500;overflow-y:auto;padding:1.5rem;backdrop-filter:blur(4px)">
+  <div style="max-width:960px;margin:0 auto;background:var(--sur);border-radius:var(--rl);box-shadow:0 24px 80px rgba(0,0,0,.25);overflow:hidden">
+    <div style="background:var(--ink);padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="goal-detail-avatar" style="width:44px;height:44px;border-radius:50%;background:var(--re);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0"></div>
+        <div>
+          <div id="goal-detail-name" style="font-size:18px;font-weight:800;color:#fff"></div>
+          <div id="goal-detail-meta" style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px"></div>
+        </div>
+      </div>
+      <button onclick="closeGoalDetail()" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <div id="goal-detail-body" style="padding:1.5rem"></div>
+  </div>
+</div>
+
+<!-- MEMBER PROFILE OVERLAY -->
+<div id="member-profile-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,26,58,.65);z-index:500;overflow-y:auto;padding:1.5rem;backdrop-filter:blur(4px)">
+  <div style="max-width:760px;margin:0 auto;background:var(--sur);border-radius:var(--rl);box-shadow:0 24px 80px rgba(0,0,0,.25);overflow:hidden">
+    <div style="background:var(--ink);padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="mp-avatar" style="width:44px;height:44px;border-radius:50%;background:var(--re);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0"></div>
+        <div>
+          <div id="mp-name" style="font-size:18px;font-weight:800;color:#fff"></div>
+          <div id="mp-meta" style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px"></div>
+        </div>
+      </div>
+      <button onclick="closeMemberProfile()" style="background:rgba(255,255,255,.12);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <div id="mp-body" style="padding:1.5rem"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE CONFIG — CB911 ────────────────────────────────────
+// TODO: Replace with CB911's own Supabase project URL and anon key
+const SBURL='https://REPLACE_WITH_CB911_SUPABASE_URL.supabase.co';
+const SBKEY='REPLACE_WITH_CB911_SUPABASE_ANON_KEY';
+const TBL='records';
+
+let CFG = {
+  members:[],
+  admins:[{display:'Admin',username:'admin',password:'CB911admin!'}],
+  teams:[],
+  roles:[],
+  allowOverallLB:true
+};
+
+function getCfg(){return CFG;}
+
+async function loadCfg(){
+  try{
+    const r=await fetch(`${SBURL}/rest/v1/config?select=*`,{headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}});
+    if(!r.ok)throw new Error(await r.text());
+    const rows=await r.json();
+    rows.forEach(row=>{
+      try{
+        const val=typeof row.value==='string'?JSON.parse(row.value):row.value;
+        if(row.key==='members')CFG.members=val||[];
+        else if(row.key==='admins')CFG.admins=val&&val.length?val:CFG.admins;
+        else if(row.key==='teams')CFG.teams=[...new Set((val||[]).filter(Boolean))];
+        else if(row.key==='roles')CFG.roles=val&&val.length?val:CFG.roles;
+        else if(row.key==='settings'){CFG.allowOverallLB=val.allowOverallLB!==false;CFG.goals=val.goals||{};CFG.levels=val.levels||[];CFG.goalsMatrix=val.goalsMatrix||{};}
+      }catch(e){}
+    });
+  }catch(e){console.error('Config load error',e);}
+}
+
+async function saveCfgKey(key,value){
+  try{
+    await fetch(`${SBURL}/rest/v1/config?key=eq.${key}`,{
+      method:'PATCH',
+      headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({value,updated_at:new Date().toISOString()})
+    });
+  }catch(e){console.error('Config save error',e);}
+}
+
+async function saveCfg(c){
+  CFG=c;
+  await Promise.all([
+    saveCfgKey('members',c.members),
+    saveCfgKey('admins',c.admins),
+    saveCfgKey('teams',c.teams),
+    saveCfgKey('roles',c.roles),
+    saveCfgKey('settings',{allowOverallLB:c.allowOverallLB!==false,goals:c.goals||{},levels:c.levels||[],goalsMatrix:c.goalsMatrix||{}})
+  ]);
+}
+
+let CU=null,CU_NAME=null,ISADM=false,CU_TEAM=null,ADMIN_DEFAULT_TEAM='',DATA=[],MODE='day',memberPage=0,recordsPage=0,adminPage=0;
+
+function setSync(c,m){document.getElementById('sdot').className='sdot '+c;document.getElementById('stxt').textContent=m;}
+
+async function loadData(){
+  setSync('sload','Syncing...');
+  try{
+    const r=await fetch(`${SBURL}/rest/v1/${TBL}?select=*&limit=100000&order=date.desc`,{headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}});
+    if(!r.ok)throw new Error(await r.text());
+    const rows=await r.json();
+    DATA=rows.map(r=>({
+      date:String(r.date||'').trim(),
+      user:String(r.user_name||'').trim(),
+      id:String(r.claim_id||'').trim(),
+      amount:parseFloat(r.claim_amount||0),
+      client:String(r.client||'').trim(),
+      role:String(r.role||'').trim(),
+      visit_id:String(r.visit_id||'').trim(),
+      dos:String(r.dos||'').trim(),
+      payer:String(r.payer||'').trim(),
+      action:String(r.action||'').trim(),
+      provider_count:parseInt(r.provider_count||0),
+      rowid:r.id
+    })).filter(r=>r.date&&r.user);
+    setSync('slive','Live · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){setSync('serr','Connection error');console.error(e);}
+}
+
+async function sendRecords(records){
+  const BATCH=500;
+  for(let i=0;i<records.length;i+=BATCH){
+    const batch=records.slice(i,i+BATCH).map(r=>({date:r.date,user_name:r.user,claim_id:r.id,claim_amount:r.amount,client:r.client,role:r.role,visit_id:r.visit_id||'',dos:r.dos||'',payer:r.payer||'',action:r.action||'',provider_count:r.provider_count||0}));
+    const res=await fetch(`${SBURL}/rest/v1/${TBL}`,{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(batch)});
+    if(!res.ok)throw new Error(await res.text());
+  }
+}
+
+async function doLogin(){
+  const u=document.getElementById('l-user').value.trim().toLowerCase();
+  const p=document.getElementById('l-pass').value;
+  await loadCfg();
+  const cfg=getCfg();
+  const admin=cfg.admins.find(a=>a.username.toLowerCase()===u&&a.password===p);
+  if(admin){CU=admin.username;CU_NAME=admin.display||admin.username;ISADM=true;CU_TEAM=admin.defaultTeam||null;ADMIN_DEFAULT_TEAM=admin.defaultTeam||'';startApp();return;}
+  const member=cfg.members.find(m=>m.username.toLowerCase()===u&&m.password===p);
+  if(member){CU=member.username;CU_NAME=member.name;ISADM=false;CU_TEAM=member.team||null;startApp();return;}
+  document.getElementById('lerr').style.display='block';
+}
+
+async function startApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('tbu').textContent=CU_NAME;
+  const b=document.getElementById('vbadge');
+  b.textContent=ISADM?'Admin':(CU_TEAM||'Member');
+  b.className='badge '+(ISADM?'badm':'busr');
+  document.querySelectorAll('.adm-only').forEach(el=>el.style.display=ISADM?'':'none');
+  document.getElementById('team-charts').style.display=ISADM?'':'none';
+  document.getElementById('emp-col').style.display=ISADM?'':'none';
+  const lbscope=document.getElementById('lbscope');
+  const cfg=getCfg();
+  if(!ISADM){
+    lbscope.innerHTML='<option value="my-team">My Team</option>'+(cfg.allowOverallLB?'<option value="overall">Overall</option>':'');
+  } else {
+    lbscope.innerHTML='<option value="my-team">By Team</option><option value="overall">Overall</option>';
+  }
+  document.getElementById('impdesc').textContent=ISADM
+    ?'Upload any employee data. Paste directly from Excel or Google Sheets.'
+    :`Upload your own data. Only rows matching "${CU_NAME}" will be imported.`;
+  const gvu=document.getElementById('goals-view-user');
+  if(ISADM){
+    gvu.style.display='';
+    gvu.innerHTML='<option value="">All Members</option>'+cfg.members.map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+  } else {
+    gvu.style.display='none';
+    document.getElementById('goals-member-label').textContent=`Showing goals for: ${CU_NAME}`;
+  }
+  setSync('sload','Loading...');
+  await Promise.all([loadCfg(), loadData()]);
+  buildFilters();
+  if(ISADM&&ADMIN_DEFAULT_TEAM){const ft=document.getElementById('fteam');if(ft)ft.value=ADMIN_DEFAULT_TEAM;}
+  renderMetrics(getF());
+  renderTable(getF());
+  renderLB();
+  setTimeout(()=>renderCharts(getF()),200);
+}
+
+function logout(){
+  ['cht','chamt','chcl','chro','chusr','churev','chteam','chavg','chteamrev'].forEach(id=>{
+    const el=document.getElementById(id);if(el){const c=Chart.getChart(el);if(c)try{c.destroy();}catch(e){}}
+  });
+  CU=null;CU_NAME=null;ISADM=false;CU_TEAM=null;DATA=[];MODE='day';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login').style.display='flex';
+  document.getElementById('l-user').value='';document.getElementById('l-pass').value='';
+  document.getElementById('lerr').style.display='none';
+  goTab('dashboard');
+}
+
+async function goTab(t){
+  ['dashboard','import','goals','history','settings'].forEach(id=>document.getElementById('tab-'+id).style.display=id===t?'':'none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.getAttribute('onclick').includes("'"+t+"'")));
+  if(t==='settings')renderSettingsTab();
+  if(t==='goals'){loadCfg().then(()=>{buildFilters();renderGoals();});}
+  if(t==='import')renderImportHistory();
+  if(t==='history')renderHistory();
+}
+
+async function doRefresh(){
+  document.getElementById('rbtn').textContent='↻ Syncing...';
+  await loadData();buildFilters();
+  renderMetrics(getF());renderTable(getF());renderLB();
+  setTimeout(()=>renderCharts(getF()),200);
+  if(document.getElementById('tab-settings').style.display!=='none')renderSettingsTab();
+  document.getElementById('rbtn').textContent='↻ Refresh';
+  toast('Refreshed','tgood');
+}
+
+function getAllRoles(){
+  const cfg=getCfg();
+  const dataRoles=[...new Set(DATA.map(r=>r.role))].filter(Boolean);
+  return[...new Set([...cfg.roles,...dataRoles])].sort();
+}
+
+function getUserTeam(name){
+  const cfg=getCfg();
+  const m=cfg.members.find(m=>m.name===name);
+  return m?m.team||'':'';
+}
+
+function buildFilters(){
+  const cfg=getCfg();
+  const allRoles=getAllRoles();
+  const clients=[...new Set(DATA.map(r=>r.client))].filter(Boolean).sort();
+  const fu=document.getElementById('fu');
+  fu.innerHTML='<option value="">Everyone</option>';
+  cfg.members.forEach(m=>fu.innerHTML+=`<option value="${m.name}">${m.name}</option>`);
+  const teamOpts='<option value="">All teams</option>'+cfg.teams.map(t=>`<option>${t}</option>`).join('');
+  ['fteam','adteam'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=teamOpts;});
+  const roleOpts='<option value="">All roles</option>'+allRoles.map(r=>`<option>${r}</option>`).join('');
+  ['fr','adrole'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=roleOpts;});
+  document.getElementById('fcl').innerHTML='<option value="">All clients</option>'+clients.map(c=>`<option>${c}</option>`).join('');
+  const au=document.getElementById('aduser');
+  if(au){au.innerHTML='<option value="">All users</option>';cfg.members.forEach(m=>{const o=document.createElement('option');o.value=m.name;o.textContent=m.name;au.appendChild(o);});}
+  const ao=document.getElementById('allow-overall');
+  if(ao)ao.checked=cfg.allowOverallLB!==false;
+  const chartIds=['cht','chamt','chro','chcl','chact','chpay','chusr','churev','chteam','chavg','chteamrev'];
+  chartIds.forEach(id=>{
+    const te=document.getElementById('ct-team-'+id);
+    const re=document.getElementById('ct-role-'+id);
+    if(te)te.innerHTML=teamOpts;
+    if(re)re.innerHTML=roleOpts;
+  });
+  const gvu=document.getElementById('goals-view-user');
+  if(gvu&&ISADM){
+    const curVal=gvu.value;
+    gvu.innerHTML='<option value="">All Members</option>'+cfg.members.map(m=>`<option value="${m.name}"${m.name===curVal?' selected':''}>${m.name}</option>`).join('');
+  }
+}
+
+function getF(){
+  let d=[...DATA];
+  const from=document.getElementById('ff').value,to=document.getElementById('ft').value;
+  const cl=document.getElementById('fcl').value,role=document.getElementById('fr').value;
+  if(from)d=d.filter(r=>r.date>=from);
+  if(to)d=d.filter(r=>r.date<=to);
+  if(cl)d=d.filter(r=>r.client===cl);
+  if(role)d=d.filter(r=>r.role===role);
+  if(ISADM){
+    const user=document.getElementById('fu').value;
+    const team=document.getElementById('fteam').value;
+    if(user)d=d.filter(r=>r.user===user);
+    if(team)d=d.filter(r=>getUserTeam(r.user)===team);
+  } else {
+    d=d.filter(r=>r.user===CU_NAME);
+  }
+  return d;
+}
+
+function getChartData(chartId){
+  let d=ISADM?[...DATA]:DATA.filter(r=>r.user===CU_NAME);
+  const teamEl=document.getElementById('ct-team-'+chartId);
+  const roleEl=document.getElementById('ct-role-'+chartId);
+  const fromEl=document.getElementById('ct-from-'+chartId);
+  const toEl=document.getElementById('ct-to-'+chartId);
+  const team=teamEl?teamEl.value:'';
+  const role=roleEl?roleEl.value:'';
+  const from=fromEl?fromEl.value:'';
+  const to=toEl?toEl.value:'';
+  if(team)d=d.filter(r=>getUserTeam(r.user)===team);
+  if(role)d=d.filter(r=>r.role===role);
+  if(from)d=d.filter(r=>r.date>=from);
+  if(to)d=d.filter(r=>r.date<=to);
+  return d;
+}
+
+function clearChartFilter(chartId){
+  ['ct-from-','ct-to-','ct-team-','ct-role-'].forEach(p=>{const el=document.getElementById(p+chartId);if(el)el.value='';});
+  renderChartById(chartId);
+}
+function renderChartById(id){renderCharts(getF());}
+
+let _applyTimer=null;
+function applyF(){
+  recordsPage=0;
+  const d=getF();
+  renderMetrics(d);
+  renderTable(d);
+  clearTimeout(_applyTimer);
+  _applyTimer=setTimeout(()=>renderCharts(d),150);
+}
+function clearF(){['ff','ft','fcl','fr'].forEach(id=>document.getElementById(id).value='');if(ISADM){document.getElementById('fu').value='';document.getElementById('fteam').value='';}document.getElementById('search-input').value='';applyF();}
+
+function fmt$(n){return'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+
+function renderMetrics(d){
+  const tot=d.length,amt=d.reduce((s,r)=>s+r.amount,0);
+  const days=new Set(d.map(r=>r.date)).size;
+  const avgC=days>0?(tot/days).toFixed(1):0;
+  let cards;
+  if(ISADM){
+    const ppl=new Set(d.map(r=>r.user)).size;
+    cards=[
+      {l:'Team Claims',v:tot.toLocaleString(),s:'total records',cls:'mcr'},
+      {l:'Claim Worth',v:fmt$(amt),s:'total amount',cls:'mcg'},
+      {l:'Active Days',v:days,s:'days with data',cls:''},
+      {l:'Contributors',v:ppl,s:'team members',cls:''},
+      {l:'Avg Claims/Day',v:avgC,s:'team daily avg',cls:''},
+      {l:'Avg Worth/Day',v:fmt$(days>0?amt/days:0),s:'team daily avg',cls:''},
+    ];
+  } else {
+    cards=[
+      {l:'My Claims',v:tot.toLocaleString(),s:'total records',cls:'mcr'},
+      {l:'My Claim Worth',v:fmt$(amt),s:'total amount',cls:'mcg'},
+      {l:'Days Active',v:days,s:'days logged',cls:''},
+      {l:'Avg Claims/Day',v:avgC,s:'my daily average',cls:''},
+      {l:'Avg Worth/Day',v:fmt$(days>0?amt/days:0),s:'my daily average',cls:''},
+    ];
+  }
+  document.getElementById('metrics').innerHTML=cards.map(c=>`<div class="mc ${c.cls}"><div class="mcl">${c.l}</div><div class="mcv" style="font-size:clamp(16px,2.5vw,26px)">${c.v}</div><div class="mcs">${c.s}</div></div>`).join('');
+}
+
+const CLRS=['#1a3aff','#4f8aff','#7aa8ff','#0a2acc','#16a34a','#d97706','#0891b2','#be185d','#0d9488','#9333ea'];
+
+function fc(id){
+  const old=document.getElementById(id);if(!old)return null;
+  const c=Chart.getChart(old);if(c)try{c.destroy();}catch(e){}
+  const n=document.createElement('canvas');n.id=id;old.parentNode.replaceChild(n,old);return n;
+}
+
+function groupByMode(d,mode){
+  const g={};
+  d.forEach(r=>{
+    let k=r.date;
+    if(mode==='week'){const dt=new Date(k),dy=dt.getDay(),m=new Date(dt);m.setDate(dt.getDate()-((dy+6)%7));k=m.toISOString().slice(0,10);}
+    else if(mode==='month')k=k.slice(0,7);
+    if(!g[k])g[k]={claims:0,amount:0};g[k].claims++;g[k].amount+=r.amount;
+  });
+  return g;
+}
+
+function renderCharts(d){
+  const dCht=getChartData('cht'),dChamt=getChartData('chamt'),dChro=getChartData('chro'),dChcl=getChartData('chcl');
+  const dChact=getChartData('chact'),dChpay=getChartData('chpay');
+  const _chtFrom=document.getElementById('ct-from-cht')?document.getElementById('ct-from-cht').value:'';
+  const _chtTo=document.getElementById('ct-to-cht')?document.getElementById('ct-to-cht').value:'';
+  const _chtDays=_chtFrom&&_chtTo?Math.round((new Date(_chtTo)-new Date(_chtFrom))/(86400000)):30;
+  const _chtMode=_chtDays>90?'month':_chtDays>21?'week':'day';
+  const g=groupByMode(dCht,_chtMode);const labels=Object.keys(g).sort();
+  new Chart(fc('cht'),{type:'bar',data:{labels,datasets:[{data:labels.map(l=>g[l].claims),backgroundColor:'#1a3aff',borderRadius:4,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#7a88b8',font:{size:10},maxTicksLimit:14,autoSkip:true,maxRotation:45}},y:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10}},beginAtZero:true}}}});
+  const _amtDays=30,_amtMode='day';
+  const gAmt=groupByMode(dChamt,_amtMode);const labelsAmt=Object.keys(gAmt).sort();
+  new Chart(fc('chamt'),{type:'line',data:{labels:labelsAmt,datasets:[{data:labelsAmt.map(l=>gAmt[l].amount),borderColor:'#0a2acc',backgroundColor:'rgba(26,58,255,.07)',tension:.3,fill:true,pointRadius:3,pointBackgroundColor:'#0a2acc'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#7a88b8',font:{size:10},maxTicksLimit:14,autoSkip:true,maxRotation:45}},y:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10},callback:v=>'$'+v.toLocaleString()},beginAtZero:true}}}});
+  const rg={};dChro.forEach(r=>{if(r.role)rg[r.role]=(rg[r.role]||0)+1;});const rl=Object.keys(rg).sort((a,b)=>rg[b]-rg[a]);
+  new Chart(fc('chro'),{type:'doughnut',data:{labels:rl,datasets:[{data:rl.map(l=>rg[l]),backgroundColor:CLRS.slice(0,rl.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},color:'#3a4a7a',padding:10}}}}});
+  const cg={};dChcl.forEach(r=>{if(r.client)cg[r.client]=(cg[r.client]||0)+1;});const cl=Object.keys(cg).sort((a,b)=>cg[b]-cg[a]);
+  new Chart(fc('chcl'),{type:'doughnut',data:{labels:cl,datasets:[{data:cl.map(l=>cg[l]),backgroundColor:CLRS.slice(0,cl.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},color:'#3a4a7a',padding:10}}}}});
+  const ag={};dChact.forEach(r=>{if(r.action)ag[r.action]=(ag[r.action]||0)+1;});const al=Object.keys(ag).sort((a,b)=>ag[b]-ag[a]);
+  if(al.length&&document.getElementById('chact')){new Chart(fc('chact'),{type:'bar',data:{labels:al,datasets:[{data:al.map(l=>ag[l]),backgroundColor:CLRS,borderRadius:4,barPercentage:.7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#7a88b8',font:{size:10},maxRotation:30}},y:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10}},beginAtZero:true}}}});}
+  const pg2={};dChpay.forEach(r=>{if(r.payer)pg2[r.payer]=(pg2[r.payer]||0)+1;});const pl=Object.keys(pg2).sort((a,b)=>pg2[b]-pg2[a]);
+  if(pl.length&&document.getElementById('chpay')){new Chart(fc('chpay'),{type:'doughnut',data:{labels:pl,datasets:[{data:pl.map(l=>pg2[l]),backgroundColor:CLRS.slice(0,pl.length),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},color:'#3a4a7a',padding:10}}}}});}
+  if(ISADM){
+    const dChusr=getChartData('chusr'),dChurev=getChartData('churev'),dChteam=getChartData('chteam');
+    const dChavg=getChartData('chavg'),dChteamrev=getChartData('chteamrev');
+    const uc={},ur={},ud={},tc={},tr2={};
+    [...dChusr,...dChurev,...dChavg].forEach(r=>{
+      uc[r.user]=(uc[r.user]||0)+1;ur[r.user]=(ur[r.user]||0)+r.amount;
+      if(!ud[r.user])ud[r.user]=new Set();ud[r.user].add(r.date);
+    });
+    dChteam.forEach(r=>{const t=getUserTeam(r.user)||'Unassigned';tc[t]=(tc[t]||0)+1;});
+    dChteamrev.forEach(r=>{const t=getUserTeam(r.user)||'Unassigned';tr2[t]=(tr2[t]||0)+r.amount;});
+    const ue=Object.entries(uc).sort((a,b)=>b[1]-a[1]);
+    const ure=Object.entries(ur).sort((a,b)=>b[1]-a[1]);
+    const uavg=Object.keys(uc).map(u=>({u,avg:uc[u]/(ud[u]?ud[u].size:1)})).sort((a,b)=>b.avg-a.avg);
+    const te=Object.keys(tc),tre=Object.keys(tr2);
+    new Chart(fc('chusr'),{type:'bar',data:{labels:ue.map(e=>e[0]),datasets:[{data:ue.map(e=>e[1]),backgroundColor:CLRS,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10}},beginAtZero:true},y:{grid:{display:false},ticks:{color:'#3a4a7a',font:{size:11}}}}}});
+    new Chart(fc('churev'),{type:'bar',data:{labels:ure.map(e=>e[0]),datasets:[{data:ure.map(e=>e[1]),backgroundColor:CLRS,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},beginAtZero:true},y:{grid:{display:false},ticks:{color:'#3a4a7a',font:{size:11}}}}}});
+    new Chart(fc('chteam'),{type:'doughnut',data:{labels:te,datasets:[{data:te.map(t=>tc[t]),backgroundColor:CLRS,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:12},color:'#3a4a7a',padding:12}}}}});
+    new Chart(fc('chavg'),{type:'bar',data:{labels:uavg.map(e=>e.u),datasets:[{data:uavg.map(e=>parseFloat(e.avg.toFixed(1))),backgroundColor:'#1a3aff',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#7a88b8',font:{size:10},maxRotation:30}},y:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10}},beginAtZero:true}}}});
+    new Chart(fc('chteamrev'),{type:'bar',data:{labels:tre,datasets:[{data:tre.map(t=>tr2[t]),backgroundColor:['#1a3aff','#0a2acc','#4f8aff','#7aa8ff'],borderRadius:4,barPercentage:.6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#7a88b8',font:{size:12}}},y:{grid:{color:'#eeecea'},ticks:{color:'#7a88b8',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'k'},beginAtZero:true}}}});
+  }
+}
+
+function renderTable(d){
+  const q=document.getElementById('search-input').value.trim().toLowerCase();
+  const field=document.getElementById('search-field').value;
+  let filtered=d;
+  if(q){filtered=d.filter(r=>{const val=field==='all'?[r.id,r.client,r.role,r.user,r.payer,r.visit_id,r.action].join(' ').toLowerCase():String(r[field]||'').toLowerCase();return val.includes(q);});}
+  const s=[...filtered].sort((a,b)=>b.date.localeCompare(a.date));
+  const total=s.length;
+  const perPage=parseInt((document.getElementById('records-per-page')||{value:'10'}).value)||10;
+  const pages=Math.max(1,Math.ceil(total/perPage));
+  if(recordsPage>=pages)recordsPage=pages-1;
+  const slice=s.slice(recordsPage*perPage,(recordsPage+1)*perPage);
+  document.getElementById('rcnt').textContent=total.toLocaleString()+' records';
+  const tb=document.getElementById('tbody');
+  const pgEl=document.getElementById('records-pagination');
+  if(!total){tb.innerHTML=`<tr><td colspan="${ISADM?11:10}"><div class="empty"><h3>No records found</h3></div></td></tr>`;if(pgEl)pgEl.style.display='none';return;}
+  const cm={};const pc=['pb','pg','pa','pp','pr'];let ci2=0;
+  tb.innerHTML=slice.map(r=>{
+    if(r.client&&!cm[r.client])cm[r.client]=pc[ci2++%pc.length];
+    return`<tr>
+      <td>${r.date}</td>
+      ${ISADM?`<td><strong>${r.user}</strong></td>`:''}
+      <td style="font-family:monospace;font-size:11px">${r.id||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${r.visit_id||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">${r.dos||'—'}</td>
+      <td>${r.payer||'—'}</td>
+      <td><strong>${fmt$(r.amount)}</strong></td>
+      <td>${r.client?`<span class="pill ${cm[r.client]}">${r.client}</span>`:'—'}</td>
+      <td>${r.role||'—'}</td>
+      <td>${r.action?`<span class="pill pg">${r.action}</span>`:'—'}</td>
+      <td>${r.provider_count||'—'}</td>
+    </tr>`;
+  }).join('');
+  if(pgEl){
+    if(total<=perPage){pgEl.style.display='none';return;}
+    pgEl.style.display='flex';
+    document.getElementById('records-page-info').textContent=`${recordsPage*perPage+1}–${Math.min((recordsPage+1)*perPage,total)} of ${total.toLocaleString()}`;
+    const btns=document.getElementById('records-page-btns');
+    btns.innerHTML=`
+      <button class="btny" onclick="recordsPage=0;renderTable(getF())" ${recordsPage===0?'disabled style="opacity:.4;cursor:not-allowed"':''}>«</button>
+      <button class="btny" onclick="recordsPage=Math.max(0,recordsPage-1);renderTable(getF())" ${recordsPage===0?'disabled style="opacity:.4;cursor:not-allowed"':''}>← Prev</button>
+      <span style="padding:5px 12px;font-weight:600;font-size:12px">${recordsPage+1} / ${pages}</span>
+      <button class="btny" onclick="recordsPage=Math.min(${pages-1},recordsPage+1);renderTable(getF())" ${recordsPage>=pages-1?'disabled style="opacity:.4;cursor:not-allowed"':''}>Next →</button>
+      <button class="btny" onclick="recordsPage=${pages-1};renderTable(getF())" ${recordsPage>=pages-1?'disabled style="opacity:.4;cursor:not-allowed"':''}>»</button>`;
+  }
+}
+
+function renderLB(){
+  const period=document.getElementById('lbperiod').value;
+  const scope=document.getElementById('lbscope').value;
+  const cfg=getCfg();
+  let tracked=[...cfg.members];
+  if(scope==='my-team'&&CU_TEAM){
+    tracked=tracked.filter(m=>m.team===CU_TEAM);
+    document.getElementById('lb-title').textContent=`${CU_TEAM} Leaderboard`;
+  } else {
+    document.getElementById('lb-title').textContent='Overall Leaderboard';
+  }
+  const trackedNames=tracked.map(m=>m.name);
+  let d=[...DATA].filter(r=>trackedNames.includes(r.user));
+  if(period==='month'){const m=new Date().toISOString().slice(0,7);d=d.filter(r=>r.date.startsWith(m));}
+  else if(period==='week'){const mn=new Date();mn.setDate(mn.getDate()-((mn.getDay()+6)%7));d=d.filter(r=>r.date>=mn.toISOString().slice(0,10));}
+  const tot=d.length;
+  const bu={};
+  d.forEach(r=>{
+    if(!bu[r.user])bu[r.user]={claims:0,amount:0,days:new Set(),roles:{}};
+    bu[r.user].claims++;bu[r.user].amount+=r.amount;bu[r.user].days.add(r.date);
+    bu[r.user].roles[r.role]=(bu[r.user].roles[r.role]||0)+1;
+  });
+  const sorted=Object.entries(bu).sort((a,b)=>b[1].claims-a[1].claims);
+  const mx=sorted.length?sorted[0][1].claims:1;
+  const tb=document.getElementById('lbtbody');
+  if(!sorted.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><h3>No data yet</h3></div></td></tr>`;return;}
+  const ranks=['🥇','🥈','🥉'];
+  tb.innerHTML=sorted.map(([name,info],i)=>{
+    const rank=i+1,days=info.days.size,avg=days>0?(info.claims/days).toFixed(1):0;
+    const topR=Object.entries(info.roles).sort((a,b)=>b[1]-a[1])[0];
+    const pct=tot>0?Math.round(info.claims/tot*100):0,bar=Math.round(info.claims/mx*100);
+    const ini=name.replace(/\./g,' ').trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const isMe=name===CU_NAME;
+    const team=getUserTeam(name);
+    return`<tr style="${isMe?'background:var(--reld)':''}">
+      <td><span class="lbr ${rank<=3?'r'+rank:''}">${rank<=3?ranks[rank-1]:'#'+rank}</span></td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:${isMe?'var(--re)':'var(--reld)'};color:${isMe?'#fff':'var(--redk)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${ini}</div><strong>${name}${isMe?' <span style="font-size:11px;color:var(--re)">(you)</span>':''}</strong></div></td>
+      <td>${team?`<span class="team-badge">${team}</span>`:'—'}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700">${info.claims.toLocaleString()}</span><div class="barbg"><div class="barfg" style="width:${bar}%"></div></div><span style="font-size:11px;color:var(--i3)">${pct}%</span></div></td>
+      <td><strong>${fmt$(info.amount)}</strong></td>
+      <td>${days}</td><td>${avg}</td>
+      <td>${topR?topR[0]:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('csvin').addEventListener('input',function(){
+  const rows=Math.max(0,this.value.trim().split('\n').filter(l=>l.trim()).length-1);
+  document.getElementById('pcount').textContent=rows>0?`${rows} row${rows===1?'':'s'} detected`:'';
+});
+
+function parseAmt(s){return parseFloat((s||'0').toString().replace(/[$,\s]/g,'').replace(/[^0-9.-]/g,'')||0);}
+
+function parsePaste(text){
+  const lines=text.trim().split('\n').map(l=>l.trimEnd()).filter(Boolean);
+  if(lines.length<2)return[];
+  const tabs=(lines[0].match(/\t/g)||[]).length;
+  const commas=(lines[0].match(/,/g)||[]).length;
+  const sep=tabs>=commas?'\t':',';
+  function split(line){
+    if(sep==='\t')return line.split('\t').map(s=>s.trim());
+    const res=[];let cur='',q=false;
+    for(const ch of line){if(ch==='"')q=!q;else if(ch===','&&!q){res.push(cur.trim());cur='';}else cur+=ch;}
+    res.push(cur.trim());return res;
+  }
+  const mergedLines=[];
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    if(mergedLines.length>0){
+      const prev=mergedLines[mergedLines.length-1];
+      const quoteCount=(prev.match(/"/g)||[]).length;
+      if(quoteCount%2!==0){mergedLines[mergedLines.length-1]=prev+' '+line;continue;}
+    }
+    mergedLines.push(line);
+  }
+  let hdrLineIdx=0;
+  for(let scan=0;scan<Math.min(10,mergedLines.length);scan++){
+    const cells=split(mergedLines[scan]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+    if(cells[0]==='user'||cells[0]==='userid'||cells[0]==='employee'||cells[0]==='name'){hdrLineIdx=scan;break;}
+  }
+  const hdr=split(mergedLines[hdrLineIdx]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+  let dataStart=hdrLineIdx+1;
+  function fi(...keys){for(const k of keys){const n=k.toLowerCase().replace(/[^a-z0-9]/g,'');const i=hdr.findIndex(h=>h===n||h.startsWith(n)||n.startsWith(h));if(i>=0)return i;}return -1;}
+  const iU=fi('user','employee','name','agent','rep','coder','userid');
+  const iD=fi('date','dateyyyy');
+  const iId=fi('claimcheck','claimid','checkid','claimnumber','claim','check');
+  const iA=fi('claimamount','amount','charges','total','value','dollars');
+  const iCl=fi('client','company');
+  const iR=fi('role','task','type','category','action');
+  const iV=fi('visitid','visit','patientid');
+  const iDos=fi('dos','dateofservice','servicedate','checkindate','checkin');
+  const iPay=fi('payer','medicare','insurance','payername','levelofcare');
+  const iAct=fi('provideraction','newproviders','status','result','outcome','actionnotes','tabbed');
+  const iProv=fi('providercount','providers','numberofproviders');
+  if(iU<0){toast('Cannot find User/Employee column — check your headers','tbad');return[];}
+  if(iD<0){toast('Cannot find Date column — check your headers','tbad');return[];}
+  function normDate(d){
+    d=d.trim();
+    if(d.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)){const p=d.split('/');return p[2]+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0');}
+    if(d.match(/^\d{4}-\d{2}-\d{2}$/))return d;
+    if(d.match(/^\d+$/)){const epoch=new Date(1899,11,30);epoch.setDate(epoch.getDate()+parseInt(d));return epoch.toISOString().slice(0,10);}
+    return d.slice(0,10);
+  }
+  const HEADER_VALS=new Set(['user','user id','userid','employee','date','yyyy-mm-dd','(yyyy-mm-dd)']);
+  const records=[];
+  for(let i=dataStart;i<mergedLines.length;i++){
+    const p=split(mergedLines[i]);
+    if(p.every(v=>!v.trim()))continue;
+    const user=(p[iU]||'').trim();
+    const rawDate=(p[iD]||'').trim();
+    if(!user||!rawDate)continue;
+    if(HEADER_VALS.has(user.toLowerCase())||HEADER_VALS.has(rawDate.toLowerCase()))continue;
+    const date=normDate(rawDate);
+    if(!date||date==='NaN-NaN-NaN'||date.length<8)continue;
+    const actionVal=iAct>=0?(p[iAct]||'').trim():'';
+    const amtVal=iA>=0?parseAmt(p[iA]):0;
+    let roleVal=iR>=0?(p[iR]||'').trim():'';
+    records.push({user,date,id:iId>=0?(p[iId]||'').trim():'',amount:amtVal,client:iCl>=0?(p[iCl]||'').trim():'',role:roleVal,visit_id:iV>=0?(p[iV]||'').trim():'',dos:iDos>=0?normDate((p[iDos]||'').trim()):'',payer:iPay>=0?(p[iPay]||'').trim():'',action:actionVal,provider_count:iProv>=0?parseInt((p[iProv]||'0').replace(/[^0-9]/g,'')||0):0});
+  }
+  return records;
+}
+
+async function doImport(){
+  const text=document.getElementById('csvin').value.trim();
+  if(!text){toast('Paste your data first','tbad');return;}
+  let records=parsePaste(text);
+  if(!records.length){toast('No valid rows found','tbad');return;}
+  if(!ISADM){
+    records=records.filter(r=>r.user===CU_NAME);
+    if(!records.length){toast('No rows for "'+CU_NAME+'" — name must match exactly','tbad');return;}
+  }
+  const btn=document.getElementById('ibtn');
+  btn.disabled=true;btn.textContent='Uploading...';
+  document.getElementById('istat').textContent='Sending '+records.length+' records...';
+  try{
+    await sendRecords(records);
+    await loadData();applyF();buildFilters();renderLB();
+    document.getElementById('csvin').value='';
+    document.getElementById('pcount').textContent='';
+    document.getElementById('istat').textContent='';
+    toast('✓ '+records.length+' records uploaded!','tgood');
+  }catch(e){
+    document.getElementById('istat').style.color='var(--redk)';
+    document.getElementById('istat').textContent='Error: '+String(e.message||e).slice(0,200);
+    toast('Upload failed','tbad');
+  }
+  btn.disabled=false;btn.textContent='Upload to Dashboard';
+}
+function doClear(){document.getElementById('csvin').value='';document.getElementById('pcount').textContent='';document.getElementById('istat').textContent='';}
+
+async function renderSettingsTab(){
+  await loadCfg();
+  renderUserList();
+  renderAdminList();
+  renderTeamList();
+  renderRoleList();
+  renderLevelList();
+  renderGoalsMatrix();
+  buildFilters();
+}
+
+async function toggleOverallLB(){
+  const cfg=getCfg();
+  cfg.allowOverallLB=document.getElementById('allow-overall').checked;
+  await saveCfg(cfg);
+  toast('Setting saved','tgood');
+}
+
+function renderUserList(){
+  const cfg=getCfg();
+  const PER_PAGE=5;
+  const tf=(document.getElementById('member-team-filter')||{}).value||'';
+  const tfEl=document.getElementById('member-team-filter');
+  if(tfEl){
+    const cur=tfEl.value;
+    tfEl.innerHTML='<option value="">All teams</option>'+cfg.teams.map(t=>`<option value="${t}"${t===cur?' selected':''}>${t}</option>`).join('');
+  }
+  let filtered=cfg.members.filter(m=>!tf||m.team===tf);
+  const total=filtered.length;
+  const pages=Math.max(1,Math.ceil(total/PER_PAGE));
+  if(memberPage>=pages)memberPage=pages-1;
+  const slice=filtered.slice(memberPage*PER_PAGE,(memberPage+1)*PER_PAGE);
+  document.getElementById('user-list').innerHTML=slice.length
+    ?slice.map(m=>{
+      const i=cfg.members.indexOf(m);
+      return`<div class="urow" style="cursor:pointer" onclick="openMemberProfile(${i})">
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--reld);color:var(--redk);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${m.name.slice(0,2).toUpperCase()}</div>
+        <div style="flex:1">
+          <div class="uname">${m.name}</div>
+          <div class="urole">@${m.username} · <span class="pw-blur" onmouseenter="this.style.filter='none'" onmouseleave="this.style.filter='blur(5px)'" title="Hover to reveal">${m.password}</span> · ${m.team||'no team'}</div>
+        </div>
+        <button class="btny" style="margin-right:4px" onclick="openEditUser(${i})">Edit</button>
+        <button class="btny" onclick="removeUser(${i})">×</button>
+      </div>`;
+    }).join('')
+    :'<div style="padding:1rem;color:var(--i3);font-size:13px;text-align:center">No members found</div>';
+  const pg=document.getElementById('user-pagination');
+  if(pg){
+    pg.style.display=total>PER_PAGE?'flex':'none';
+    pg.innerHTML=`
+      <span>${memberPage*PER_PAGE+1}–${Math.min((memberPage+1)*PER_PAGE,total)} of ${total} members</span>
+      <div style="display:flex;gap:4px">
+        <button class="btny" onclick="memberPage=Math.max(0,memberPage-1);renderUserList()" ${memberPage===0?'disabled style="opacity:.4;cursor:not-allowed"':''}>← Prev</button>
+        <span style="padding:5px 10px;font-weight:600">${memberPage+1} / ${pages}</span>
+        <button class="btny" onclick="memberPage=Math.min(${pages-1},memberPage+1);renderUserList()" ${memberPage>=pages-1?'disabled style="opacity:.4;cursor:not-allowed"':''}>Next →</button>
+      </div>`;
+  }
+}
+
+async function addUser(){
+  const name=document.getElementById('nu-name').value.trim();
+  const username=document.getElementById('nu-user').value.trim().toLowerCase();
+  const password=document.getElementById('nu-pass').value;
+  const team=document.getElementById('nu-team').value;
+  const tracked=document.getElementById('nu-tracked').value==='yes';
+  if(!name||!username||!password){toast('Name, username and password required','tbad');return;}
+  const cfg=getCfg();
+  if(cfg.members.find(m=>m.username===username)||cfg.admins.find(a=>a.username===username)){toast('Username already taken','tbad');return;}
+  cfg.members.push({name,username,password,team,tracked});
+  await saveCfg(cfg);closeModal('modal-add-user');
+  ['nu-name','nu-user','nu-pass'].forEach(id=>document.getElementById(id).value='');
+  renderUserList();toast('Member added!','tgood');
+}
+
+function openEditUser(i){
+  const cfg=getCfg();const m=cfg.members[i];
+  document.getElementById('eu-idx').value=i;
+  document.getElementById('eu-name').value=m.name;
+  document.getElementById('eu-user').value=m.username;
+  document.getElementById('eu-pass').value='';
+  document.getElementById('eu-tracked').value=m.tracked===false||m.tracked==='no'?'no':'yes';
+  const ts=document.getElementById('eu-team');
+  ts.innerHTML='<option value="">No team</option>'+cfg.teams.map(t=>`<option${m.team===t?' selected':''}>${t}</option>`).join('');
+  const ls=document.getElementById('eu-level');
+  ls.innerHTML='<option value="">— No level —</option>'+(cfg.levels||[]).map(l=>`<option value="${l}"${m.level===l?' selected':''}>${l}</option>`).join('');
+  document.getElementById('eu-goal-override').value=m.goalOverride||0;
+  openModal('modal-edit-user');
+}
+
+async function saveEditUser(){
+  const i=parseInt(document.getElementById('eu-idx').value);
+  const cfg=getCfg();const m=cfg.members[i];
+  m.name=document.getElementById('eu-name').value.trim();
+  m.username=document.getElementById('eu-user').value.trim().toLowerCase();
+  const np=document.getElementById('eu-pass').value;
+  if(np)m.password=np;
+  m.team=document.getElementById('eu-team').value;
+  m.tracked=document.getElementById('eu-tracked').value==='yes';
+  m.level=document.getElementById('eu-level').value||undefined;
+  const _go=parseInt(document.getElementById('eu-goal-override').value)||0;
+  m.goalOverride=_go>0?_go:undefined;
+  await saveCfg(cfg);closeModal('modal-edit-user');
+  renderUserList();toast('Member updated!','tgood');
+}
+
+async function removeUser(i){
+  const cfg=getCfg();cfg.members.splice(i,1);await saveCfg(cfg);renderUserList();toast('Member removed','tgood');
+}
+
+function renderAdminList(){
+  const cfg=getCfg();
+  const PER=5;
+  const total=cfg.admins.length;
+  const pages=Math.max(1,Math.ceil(total/PER));
+  if(adminPage>=pages)adminPage=pages-1;
+  const slice=cfg.admins.slice(adminPage*PER,(adminPage+1)*PER);
+  document.getElementById('admin-list').innerHTML=slice.map((a,si)=>{
+    const i=adminPage*PER+si;
+    return`<div class="urow">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--reld);color:var(--redk);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${(a.display||a.username).slice(0,2).toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="uname">${a.display||a.username}</div>
+        <div class="urole">@${a.username} · <span class="pw-blur" onmouseenter="this.style.filter='none'" onmouseleave="this.style.filter='blur(5px)'" title="Hover to reveal">${a.password}</span></div>
+      </div>
+      <button class="btny" style="margin-right:4px" onclick="openEditAdmin(${i})">Edit</button>
+      ${i>0?`<button class="btny" onclick="removeAdmin(${i})">×</button>`:'<span style="font-size:11px;color:var(--i3)">primary</span>'}
+    </div>`;
+  }).join('');
+  const pg=document.getElementById('admin-pagination');
+  if(pg){
+    pg.style.display=total>PER?'flex':'none';
+    pg.innerHTML=`
+      <span>${adminPage*PER+1}–${Math.min((adminPage+1)*PER,total)} of ${total} admins</span>
+      <div style="display:flex;gap:4px">
+        <button class="btny" onclick="adminPage=Math.max(0,adminPage-1);renderAdminList()" ${adminPage===0?'disabled style="opacity:.4"':''}>← Prev</button>
+        <span style="padding:5px 10px;font-weight:600">${adminPage+1} / ${pages}</span>
+        <button class="btny" onclick="adminPage=Math.min(${pages-1},adminPage+1);renderAdminList()" ${adminPage>=pages-1?'disabled style="opacity:.4"':''}>Next →</button>
+      </div>`;
+  }
+}
+
+async function addAdmin(){
+  const display=document.getElementById('na-display').value.trim();
+  const username=document.getElementById('na-user').value.trim().toLowerCase();
+  const password=document.getElementById('na-pass').value;
+  if(!username||!password){toast('Username and password required','tbad');return;}
+  const cfg=getCfg();
+  if(cfg.admins.find(a=>a.username===username)||cfg.members.find(m=>m.username===username)){toast('Username already taken','tbad');return;}
+  const defTeam=document.getElementById('na-team').value;
+  cfg.admins.push({display:display||username,username,password,defaultTeam:defTeam});
+  await saveCfg(cfg);closeModal('modal-add-admin');
+  ['na-display','na-user','na-pass'].forEach(id=>document.getElementById(id).value='');
+  renderAdminList();toast('Admin added!','tgood');
+}
+
+async function removeAdmin(i){
+  const cfg=getCfg();cfg.admins.splice(i,1);await saveCfg(cfg);adminPage=0;renderAdminList();toast('Admin removed','tgood');
+}
+
+function openEditAdmin(i){
+  const cfg=getCfg();const a=cfg.admins[i];
+  document.getElementById('ea-idx').value=i;
+  document.getElementById('ea-display').value=a.display||'';
+  document.getElementById('ea-user').value=a.username;
+  document.getElementById('ea-pass').value='';
+  const et=document.getElementById('ea-team');
+  if(et){et.innerHTML='<option value="">All teams (no auto-filter)</option>'+cfg.teams.map(t=>`<option value="${t}"${a.defaultTeam===t?' selected':''}>${t}</option>`).join('');}
+  openModal('modal-edit-admin');
+}
+
+async function saveEditAdmin(){
+  const i=parseInt(document.getElementById('ea-idx').value);
+  const cfg=getCfg();const a=cfg.admins[i];
+  const display=document.getElementById('ea-display').value.trim();
+  const username=document.getElementById('ea-user').value.trim().toLowerCase();
+  const np=document.getElementById('ea-pass').value;
+  if(!username){toast('Username required','tbad');return;}
+  if(cfg.admins.find((x,xi)=>xi!==i&&x.username===username)||cfg.members.find(m=>m.username===username)){toast('Username already taken','tbad');return;}
+  a.display=display||username;a.username=username;
+  if(np)a.password=np;
+  const et=document.getElementById('ea-team');
+  if(et)a.defaultTeam=et.value||undefined;
+  await saveCfg(cfg);closeModal('modal-edit-admin');
+  renderAdminList();toast('Admin updated!','tgood');
+}
+
+function renderTeamList(){
+  const cfg=getCfg();
+  document.getElementById('team-list').innerHTML=cfg.teams.length
+    ?cfg.teams.map((t,i)=>`
+      <div class="urow">
+        <div style="flex:1;font-weight:600;font-size:13px">${t}</div>
+        <span style="font-size:11px;color:var(--i3);margin-right:8px">${cfg.members.filter(m=>m.team===t).length} members</span>
+        <button class="btny" onclick="removeTeam(${i})">×</button>
+      </div>`).join('')
+    :'<div style="padding:1rem;color:var(--i3);font-size:13px;text-align:center">No teams yet — add one!</div>';
+  const opts='<option value="">No team</option>'+cfg.teams.map(t=>`<option>${t}</option>`).join('');
+  document.getElementById('nu-team').innerHTML=opts;
+}
+
+async function addTeam(){
+  const name=document.getElementById('nt-name').value.trim();
+  if(!name){toast('Team name required','tbad');return;}
+  const cfg=getCfg();
+  cfg.teams=[...new Set(cfg.teams.filter(Boolean))];
+  if(cfg.teams.includes(name)){toast('Already exists','tbad');return;}
+  cfg.teams.push(name);await saveCfg(cfg);closeModal('modal-add-team');
+  document.getElementById('nt-name').value='';
+  renderTeamList();buildFilters();toast('Team added!','tgood');
+}
+
+async function removeTeam(i){
+  const cfg=getCfg();const name=cfg.teams[i];
+  cfg.members.forEach(m=>{if(m.team===name)m.team='';});
+  cfg.teams.splice(i,1);await saveCfg(cfg);
+  renderTeamList();renderUserList();buildFilters();toast('Team removed','tgood');
+}
+
+let rolePage=0;
+function renderRoleList(){
+  const cfg=getCfg();
+  const PER=5;
+  const dataRoles=[...new Set(DATA.map(r=>r.role))].filter(Boolean);
+  const allRoles=[...new Set([...cfg.roles,...dataRoles])].sort();
+  const total=allRoles.length;
+  const pages=Math.max(1,Math.ceil(total/PER));
+  if(rolePage>=pages)rolePage=pages-1;
+  const slice=allRoles.slice(rolePage*PER,(rolePage+1)*PER);
+  document.getElementById('role-list').innerHTML=slice.map(r=>{
+    const isCustom=cfg.roles.includes(r);const idx=cfg.roles.indexOf(r);
+    return`<div class="urow">
+      <div style="flex:1;font-weight:600;font-size:13px">${r}${!isCustom?' <span style="font-size:10px;color:var(--i3);font-weight:400">(from data)</span>':''}</div>
+      ${isCustom?`<button class="btny" onclick="removeRole(${idx})">×</button>`:''}
+    </div>`;
+  }).join('');
+  const pg=document.getElementById('role-pagination');
+  if(pg){
+    pg.style.display=total>PER?'flex':'none';
+    pg.innerHTML=`
+      <span>${rolePage*PER+1}–${Math.min((rolePage+1)*PER,total)} of ${total} roles</span>
+      <div style="display:flex;gap:4px">
+        <button class="btny" onclick="rolePage=Math.max(0,rolePage-1);renderRoleList()" ${rolePage===0?'disabled style="opacity:.4;cursor:not-allowed"':''}>← Prev</button>
+        <span style="padding:5px 10px;font-weight:600">${rolePage+1} / ${pages}</span>
+        <button class="btny" onclick="rolePage=Math.min(${pages-1},rolePage+1);renderRoleList()" ${rolePage>=pages-1?'disabled style="opacity:.4;cursor:not-allowed"':''}>Next →</button>
+      </div>`;
+  }
+}
+
+async function addRole(){
+  const name=document.getElementById('nr-name').value.trim();
+  if(!name){toast('Role name required','tbad');return;}
+  const cfg=getCfg();
+  if(cfg.roles.includes(name)){toast('Already exists','tbad');return;}
+  cfg.roles.push(name);await saveCfg(cfg);closeModal('modal-add-role');
+  document.getElementById('nr-name').value='';
+  renderRoleList();buildFilters();toast('Role added!','tgood');
+}
+
+async function removeRole(i){
+  const cfg=getCfg();cfg.roles.splice(i,1);await saveCfg(cfg);renderRoleList();buildFilters();toast('Removed','tgood');
+}
+
+function openModal(id){
+  if(id==='modal-add-user'){
+    const cfg=getCfg();
+    document.getElementById('nu-team').innerHTML='<option value="">No team</option>'+cfg.teams.map(t=>`<option>${t}</option>`).join('');
+  }
+  if(id==='modal-add-admin'){
+    const cfg=getCfg();
+    const sel=document.getElementById('na-team');
+    if(sel)sel.innerHTML='<option value="">All teams</option>'+cfg.teams.map(t=>`<option>${t}</option>`).join('');
+  }
+  if(id==='modal-goals-settings') openGoalsSettings();
+  else document.getElementById(id).classList.add('open');
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
+function toast(msg,cls){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+cls;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',4000);}
+
+function getGoals(){return getCfg().goals||{};}
+
+async function saveGoals(){
+  const cfg=getCfg();
+  if(!cfg.goals)cfg.goals={};
+  document.querySelectorAll('.goal-input').forEach(inp=>{cfg.goals[inp.dataset.role]=parseInt(inp.value)||0;});
+  await saveCfg(cfg);closeModal('modal-goals-settings');renderGoals();toast('Goals saved!','tgood');
+}
+
+function openGoalsSettings(){
+  const cfg=getCfg();
+  const goals=cfg.goals||{};
+  const allRoles=getAllRoles();
+  document.getElementById('goals-form').innerHTML=allRoles.map(r=>`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <label style="flex:1;font-size:13px;font-weight:600">${r}</label>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="number" class="goal-input" data-role="${r}" value="${goals[r]||0}" min="0"
+          style="width:80px;padding:7px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-family:inherit;font-size:13px;outline:none;text-align:center">
+        <span style="font-size:11px;color:var(--i3)">claims/day</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('modal-goals-settings').classList.add('open');
+}
+
+function getGoalsPeriodData(){
+  const period=document.getElementById('goals-period').value;
+  const gf=document.getElementById('goals-from');
+  const gt=document.getElementById('goals-to');
+  gf.style.display=period==='custom'?'':'none';
+  gt.style.display=period==='custom'?'':'none';
+  let from,to;
+  const now=new Date();
+  if(period==='week'){
+    const mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()+6)%7));
+    from=mon.toISOString().slice(0,10);to=now.toISOString().slice(0,10);
+  } else if(period==='month'){
+    from=now.toISOString().slice(0,7)+'-01';to=now.toISOString().slice(0,10);
+  } else {
+    from=gf.value||now.toISOString().slice(0,10);to=gt.value||now.toISOString().slice(0,10);
+  }
+  let d=[...DATA].filter(r=>r.date>=from&&r.date<=to);
+  return{d,from,to};
+}
+
+function renderGoals(){
+  const {d,from,to}=getGoalsPeriodData();
+  const cfg=getCfg();
+  const goals=cfg.goals||{};
+  const matrix=cfg.goalsMatrix||{};
+  let members;
+  if(ISADM){
+    const viewUser=document.getElementById('goals-view-user').value;
+    members=viewUser?cfg.members.filter(m=>m.name===viewUser):[...cfg.members];
+    document.getElementById('goals-table-wrap').style.display=viewUser?'none':'';
+  } else {
+    members=cfg.members.filter(m=>m.name===CU_NAME);
+    document.getElementById('goals-table-wrap').style.display='none';
+  }
+  const days=[];
+  const cur=new Date(from),end=new Date(to);
+  while(cur<=end){const dow=cur.getDay();if(dow!==0&&dow!==6)days.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
+  const totalDays=days.length||1;
+  if(ISADM&&!document.getElementById('goals-view-user').value){
+    const totalClaims=d.length;
+    const onTrack=members.filter(m=>{
+      const userD=d.filter(r=>r.user===m.name);
+      const goal=getUserDailyGoal(m.name,goals,matrix,userD);
+      return goal>0&&(userD.length/totalDays)>=goal*0.9;
+    }).length;
+    const withGoals=members.filter(m=>{const userD=d.filter(r=>r.user===m.name);return getUserDailyGoal(m.name,goals,matrix,userD)>0;}).length;
+    document.getElementById('goals-summary').innerHTML=`
+      <div class="mc mcr"><div class="mcl">Period</div><div class="mcv" style="font-size:16px">${from} → ${to}</div><div class="mcs">${totalDays} working days</div></div>
+      <div class="mc"><div class="mcl">Total Claims</div><div class="mcv">${totalClaims.toLocaleString()}</div><div class="mcs">across all members</div></div>
+      <div class="mc mcg"><div class="mcl">On Track</div><div class="mcv">${onTrack} / ${withGoals}</div><div class="mcs">members meeting goals</div></div>
+      <div class="mc"><div class="mcl">Team Avg/Day</div><div class="mcv">${(totalClaims/totalDays).toFixed(1)}</div><div class="mcs">claims per day</div></div>`;
+  } else {
+    const myD=d.filter(r=>r.user===(ISADM?document.getElementById('goals-view-user').value:CU_NAME));
+    const myGoal=members.length?getUserDailyGoal(members[0].name,goals,matrix,myD):0;
+    const myAvg=(myD.length/totalDays).toFixed(1);
+    const myPct=myGoal>0?Math.round((myAvg/myGoal)*100):null;
+    const sc=myPct===null?'var(--i3)':myPct>=90?'var(--gr)':myPct>=70?'var(--am)':'var(--re)';
+    document.getElementById('goals-summary').innerHTML=`
+      <div class="mc mcr"><div class="mcl">Period</div><div class="mcv" style="font-size:16px">${from} → ${to}</div><div class="mcs">${totalDays} working days</div></div>
+      <div class="mc"><div class="mcl">My Claims</div><div class="mcv">${myD.length.toLocaleString()}</div><div class="mcs">total in period</div></div>
+      <div class="mc"><div class="mcl">Daily Avg</div><div class="mcv">${myAvg}</div><div class="mcs">claims per working day</div></div>
+      <div class="mc" style="border-color:${sc}20"><div class="mcl">vs Goal</div><div class="mcv" style="color:${sc}">${myPct!==null?myPct+'%':'—'}</div><div class="mcs">${myGoal>0?`goal: ${myGoal}/day`:'no goal set'}</div></div>`;
+  }
+  document.getElementById('goals-grid').innerHTML=members.map(m=>{
+    const userD=d.filter(r=>r.user===m.name);
+    const goal=getUserDailyGoal(m.name,goals,matrix,userD);
+    const avg=userD.length>0?(userD.length/totalDays).toFixed(1):0;
+    const pct=goal>0?Math.round((parseFloat(avg)/goal)*100):null;
+    const ini=m.name.replace(/\./g,' ').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const byDay={};userD.forEach(r=>{byDay[r.date]=(byDay[r.date]||0)+1;});
+    const roleCounts={};userD.forEach(r=>{if(r.role)roleCounts[r.role]=(roleCounts[r.role]||0)+1;});
+    const topRoles=Object.entries(roleCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const dayBars=days.map(day=>{
+      const count=byDay[day]||0;
+      const hit=goal>0?count>=goal:null;
+      const pctBar=goal>0?Math.min(100,Math.round(count/goal*100)):0;
+      const color=hit===null?'var(--s2)':hit?'var(--gr)':count>0?'var(--am)':'var(--bor)';
+      return`<div title="${day}: ${count}" style="flex:1;min-width:8px;height:32px;border-radius:3px;background:var(--s2);overflow:hidden;position:relative"><div style="position:absolute;bottom:0;left:0;right:0;background:${color};height:${goal>0?pctBar:count>0?100:0}%;transition:height .3s"></div></div>`;
+    }).join('');
+    const sc=pct===null?'var(--i3)':pct>=90?'var(--gr)':pct>=70?'var(--am)':'var(--re)';
+    const statusText=pct===null?'No goal set':pct>=90?'✓ On track':pct>=70?'~ Close':'✗ Behind';
+    const lvlBadge=m.level?`<span style="font-size:10px;background:var(--pud);color:var(--re);padding:1px 7px;border-radius:4px;font-weight:700;margin-left:4px">${m.level}</span>`:'';
+    const _cs=ISADM?'cursor:pointer':'';
+    const _mn=m.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const _attr=ISADM?'data-member="'+_mn+'" onclick="openGoalDetail(this.dataset.member)"':'';
+    return`<div class="card" style="${_cs}" ${_attr}>
+      <div class="ch" style="padding:.75rem 1rem">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:var(--reld);color:var(--redk);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini}</div>
+          <div><div style="font-weight:700;font-size:13px">${m.name}${lvlBadge}</div><div style="font-size:11px;color:var(--i3)">${m.team||'no team'}</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:800;color:${sc}">${pct!==null?pct+'%':'—'}</div>
+          <div style="font-size:11px;color:${sc};font-weight:600">${statusText}${ISADM?' <span style="font-size:10px;color:var(--i3);font-weight:400">↗ expand</span>':''}</div>
+        </div>
+      </div>
+      <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bor)">
+        <div style="display:flex;gap:3px;align-items:flex-end;height:36px">${dayBars}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--i3)"><span>${days[0]||''}</span><span>${days[days.length-1]||''}</span></div>
+      </div>
+      <div style="padding:.6rem 1rem;display:flex;gap:1rem;font-size:12px;flex-wrap:wrap">
+        <div><span style="color:var(--i3)">Total</span> <strong>${userD.length}</strong></div>
+        <div><span style="color:var(--i3)">Avg/day</span> <strong>${avg}</strong></div>
+        <div><span style="color:var(--i3)">Goal</span> <strong>${goal>0?goal+'/day':'—'}</strong></div>
+        <div><span style="color:var(--i3)">Days active</span> <strong>${Object.keys(byDay).length}</strong></div>
+      </div>
+      ${topRoles.length?`<div style="padding:.5rem 1rem .75rem;border-top:1px solid var(--bor);display:flex;gap:6px;flex-wrap:wrap">${topRoles.map(([role,cnt])=>`<div style="display:flex;align-items:center;gap:6px;font-size:11px;flex:1;min-width:100px"><div style="flex:1"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${role}</div><div style="display:flex;align-items:center;gap:4px;margin-top:2px"><div class="goal-bar-wrap"><div class="goal-bar-fill" style="width:${userD.length>0?Math.round(cnt/userD.length*100):0}%"></div></div><span style="color:var(--i3);white-space:nowrap">${cnt}</span></div></div></div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+  if(!members.length){document.getElementById('goals-grid').innerHTML=`<div class="card"><div style="padding:2rem;text-align:center;color:var(--i3)"><h3 style="color:var(--ink);margin-bottom:6px">No data to show</h3></div></div>`;}
+  if(ISADM&&!document.getElementById('goals-view-user').value){
+    document.getElementById('goals-table-head').innerHTML=`<tr><th>Member</th><th>Team</th><th>Level</th><th>Goal/Day</th><th>Total</th><th>Avg/Day</th><th>Days Active</th><th>% of Goal</th><th>Status</th></tr>`;
+    document.getElementById('goals-table-body').innerHTML=cfg.members.map(m=>{
+      const userD=d.filter(r=>r.user===m.name);
+      const goal=getUserDailyGoal(m.name,goals,matrix,userD);
+      const avg=userD.length>0?(userD.length/totalDays).toFixed(1):0;
+      const pct=goal>0?Math.round((parseFloat(avg)/goal)*100):null;
+      const byDay={};userD.forEach(r=>{byDay[r.date]=(byDay[r.date]||0)+1;});
+      const sc=pct===null?'var(--i3)':pct>=90?'var(--gr)':pct>=70?'var(--am)':'var(--re)';
+      const statusText=pct===null?'No goal':pct>=90?'✓ On track':pct>=70?'~ Close':'✗ Behind';
+      return`<tr>
+        <td><strong>${m.name}</strong></td><td>${m.team||'—'}</td>
+        <td>${m.level?`<span style="font-size:10px;background:var(--pud);color:var(--re);padding:1px 7px;border-radius:4px;font-weight:700">${m.level}</span>`:'—'}</td>
+        <td>${goal>0?goal:'—'}</td><td><strong>${userD.length}</strong></td><td>${avg}</td>
+        <td>${Object.keys(byDay).length}</td>
+        <td>${pct!==null?`<div style="display:flex;align-items:center;gap:6px"><div class="goal-bar-wrap"><div class="goal-bar-fill" style="background:${sc};width:${Math.min(100,pct||0)}%"></div></div><span style="font-weight:600;color:${sc}">${pct}%</span></div>`:'—'}</td>
+        <td><span style="font-weight:600;color:${sc}">${statusText}</span></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function getUserDailyGoal(name,goals,matrix,userRecords){
+  const cfg=getCfg();
+  const member=cfg.members.find(m=>m.name===name);
+  if(member&&member.goalOverride>0)return member.goalOverride;
+  const level=member?member.level||'':'';
+  const roleCounts={};
+  userRecords.forEach(r=>{if(r.role)roleCounts[r.role]=(roleCounts[r.role]||0)+1;});
+  const recordRoles=Object.entries(roleCounts).sort((a,b)=>b[1]-a[1]).map(([r])=>r);
+  const allRoles=[...new Set([...recordRoles,...(cfg.roles||[])])];
+  for(const role of allRoles){
+    if(level&&matrix[level]&&matrix[level][role])return matrix[level][role];
+    if(goals[role])return goals[role];
+  }
+  return Object.values(goals).find(v=>v>0)||0;
+}
+
+let ihPage=0;
+function renderImportHistory(page){
+  if(page!==undefined)ihPage=page;
+  const el=document.getElementById('import-history-list');
+  const pgEl=document.getElementById('ih-pagination');
+  if(!el)return;
+  if(!DATA.length){el.innerHTML='<div style="padding:1rem;text-align:center;color:var(--i3);font-size:12px">No data yet</div>';if(pgEl)pgEl.style.display='none';return;}
+  const cfg=getCfg();
+  if(!ISADM){
+    const myData=DATA.filter(r=>r.user===CU_NAME);
+    const byDay={};myData.forEach(r=>{byDay[r.date]=(byDay[r.date]||0)+1;});
+    const daySorted=Object.entries(byDay).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,10);
+    if(!daySorted.length){el.innerHTML='<div style="padding:1rem;text-align:center;color:var(--i3);font-size:12px">No records yet</div>';if(pgEl)pgEl.style.display='none';return;}
+    el.innerHTML='<div style="padding:6px 14px 2px;font-size:10px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em">Your last 10 active days</div>'
+      +daySorted.map(([date,count])=>{
+        const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(date+'T12:00:00').getDay()];
+        return`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--bor)">
+          <div style="width:36px;height:36px;border-radius:8px;background:var(--pud);color:var(--re);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;font-weight:700;line-height:1.2"><span>${dow}</span><span style="font-size:13px">${date.slice(8)}</span></div>
+          <div style="flex:1"><div style="font-weight:600;font-size:12px">${date}</div><div style="font-size:10px;color:var(--i3)">${count} claim${count!==1?'s':''} processed</div></div>
+          <div style="font-weight:800;font-size:15px;color:var(--re)">${count}</div>
+        </div>`;
+      }).join('');
+    if(pgEl)pgEl.style.display='none';
+    return;
+  }
+  let byUser={};
+  DATA.forEach(r=>{
+    if(!byUser[r.user])byUser[r.user]={count:0,lastDate:'',days:new Set()};
+    byUser[r.user].count++;byUser[r.user].days.add(r.date);
+    if(r.date>byUser[r.user].lastDate)byUser[r.user].lastDate=r.date;
+  });
+  const sorted=Object.entries(byUser).sort((a,b)=>b[1].lastDate.localeCompare(a[1].lastDate));
+  const PER=9,total=sorted.length,pages=Math.max(1,Math.ceil(total/PER));
+  if(ihPage>=pages)ihPage=pages-1;
+  const slice=sorted.slice(ihPage*PER,(ihPage+1)*PER);
+  el.innerHTML=slice.map(([name,info])=>{
+    const ini=name.replace(/\./g,' ').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const m=cfg.members.find(m=>m.name===name);
+    const team=m?m.team||'':'';
+    return`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bor)">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--reld);color:var(--redk);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${ini}</div>
+      <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div><div style="font-size:10px;color:var(--i3)">${team||'no team'} · Last: ${info.lastDate} · ${info.days.size} days</div></div>
+      <div style="text-align:right;flex-shrink:0"><div style="font-weight:700;font-size:13px;color:var(--re)">${info.count.toLocaleString()}</div><div style="font-size:10px;color:var(--i3)">records</div></div>
+    </div>`;
+  }).join('');
+  if(pgEl){
+    pgEl.style.display=total>PER?'flex':'none';
+    pgEl.innerHTML=`
+      <span style="font-size:11px;color:var(--i3)">${ihPage*PER+1}–${Math.min((ihPage+1)*PER,total)} of ${total}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btny" onclick="renderImportHistory(${ihPage-1})" ${ihPage===0?'disabled style="opacity:.4"':''}>←</button>
+        <button class="btny" onclick="renderImportHistory(${ihPage+1})" ${ihPage>=pages-1?'disabled style="opacity:.4"':''}>→</button>
+      </div>`;
+  }
+}
+
+function getLevels(){return getCfg().levels||[];}
+
+async function addLevel(){
+  const name=document.getElementById('nl-name').value.trim();
+  if(!name){toast('Level name required','tbad');return;}
+  const cfg=getCfg();
+  if(!cfg.levels)cfg.levels=[];
+  if(cfg.levels.includes(name)){toast('Already exists','tbad');return;}
+  cfg.levels.push(name);await saveCfg(cfg);closeModal('modal-add-level');
+  document.getElementById('nl-name').value='';
+  renderLevelList();renderGoalsMatrix();toast('Level added!','tgood');
+}
+
+async function removeLevel(i){
+  const cfg=getCfg();cfg.levels.splice(i,1);await saveCfg(cfg);
+  renderLevelList();renderGoalsMatrix();toast('Level removed','tgood');
+}
+
+function renderLevelList(){
+  const cfg=getCfg();const levels=cfg.levels||[];const el=document.getElementById('level-list');if(!el)return;
+  el.innerHTML=levels.length
+    ?levels.map((l,i)=>`<div class="urow"><div style="flex:1;font-weight:600;font-size:13px">${l}</div><button class="btny" onclick="removeLevel(${i})">×</button></div>`).join('')
+    :'<div style="padding:1rem;color:var(--i3);font-size:13px;text-align:center">No levels yet — add one above</div>';
+}
+
+function renderGoalsMatrix(){
+  const cfg=getCfg();const levels=cfg.levels||[];const roles=getAllRoles();const matrix=cfg.goalsMatrix||{};const el=document.getElementById('goals-matrix');if(!el)return;
+  if(!levels.length||!roles.length){el.innerHTML='<div style="color:var(--i3);font-size:13px;text-align:center;padding:1rem">Add experience levels and roles to set goals</div>';return;}
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;padding:8px 10px;background:var(--bg);font-size:11px;font-weight:700;color:var(--i3);border-bottom:1px solid var(--bor)">Role</th>`;
+  levels.forEach(l=>{html+=`<th style="text-align:center;padding:8px 10px;background:var(--bg);font-size:11px;font-weight:700;color:var(--i3);border-bottom:1px solid var(--bor)">${l}<br><span style="font-weight:400">/day</span></th>`;});
+  html+='</tr></thead><tbody>';
+  roles.forEach((role,ri)=>{
+    html+=`<tr style="background:${ri%2===0?'var(--bg)':'#fff'}"><td style="padding:7px 10px;font-weight:600;border-bottom:1px solid var(--bor)">${role}</td>`;
+    levels.forEach(level=>{
+      const val=(matrix[level]&&matrix[level][role])||0;
+      html+=`<td style="padding:4px 6px;border-bottom:1px solid var(--bor);text-align:center"><input type="number" min="0" value="${val}" data-level="${level}" data-role="${role}" onchange="updateGoalMatrix(this)" style="width:60px;padding:5px;border:1.5px solid var(--bor);border-radius:6px;font-size:12px;text-align:center;font-family:inherit;outline:none"></td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+async function updateGoalMatrix(inp){
+  const level=inp.dataset.level,role=inp.dataset.role,val=parseInt(inp.value)||0;
+  const cfg=getCfg();
+  if(!cfg.goalsMatrix)cfg.goalsMatrix={};
+  if(!cfg.goalsMatrix[level])cfg.goalsMatrix[level]={};
+  cfg.goalsMatrix[level][role]=val;
+  await saveCfg(cfg);
+}
+
+function toggleEye(id){const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';}
+
+function openMemberProfile(idx){
+  const cfg=getCfg();const m=cfg.members[idx];if(!m)return;
+  const goals=cfg.goals||{};const matrix=cfg.goalsMatrix||{};const levels=cfg.levels||[];const allRoles=getAllRoles();
+  const ini=m.name.replace(/\./g,' ').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('mp-avatar').textContent=ini;
+  document.getElementById('mp-name').textContent=m.name;
+  document.getElementById('mp-meta').textContent=`${m.team||'No team'} · @${m.username}`;
+  const roleRows=allRoles.map(role=>{
+    const matrixGoal=m.level&&matrix[m.level]?matrix[m.level][role]||0:0;
+    const flatGoal=goals[role]||0;
+    const effectiveGoal=matrixGoal||flatGoal;
+    return`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--bor);font-weight:600">${role}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor);text-align:center"><span style="font-weight:700;color:${matrixGoal?'var(--re)':'var(--i3)'}">${matrixGoal||'—'}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor);text-align:center;color:var(--i3)">${flatGoal||'—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor);text-align:center;font-weight:700;color:${effectiveGoal?'var(--re)':'var(--i3)'}">${effectiveGoal||'—'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('mp-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+      <div><div style="font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Team</div>
+        <select onchange="updateMemberField(${idx},'team',this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+          <option value="">No team</option>${cfg.teams.map(t=>`<option value="${t}"${m.team===t?' selected':''}>${t}</option>`).join('')}
+        </select></div>
+      <div><div style="font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Experience Level</div>
+        <select onchange="updateMemberField(${idx},'level',this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+          <option value="">No level</option>${levels.map(l=>`<option value="${l}"${m.level===l?' selected':''}>${l}</option>`).join('')}
+        </select></div>
+      <div><div style="font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Daily Goal Override</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" min="0" value="${m.goalOverride||0}" onchange="updateMemberField(${idx},'goalOverride',parseInt(this.value)||0)" style="width:80px;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+          <span style="font-size:11px;color:var(--i3)">claims/day (0 = use default)</span>
+        </div></div>
+      <div><div style="font-size:11px;font-weight:700;color:var(--i3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Leaderboard</div>
+        <select onchange="updateMemberField(${idx},'tracked',this.value==='yes')" style="width:100%;padding:8px 10px;border:1.5px solid var(--bor);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none">
+          <option value="yes"${m.tracked!==false&&m.tracked!=='no'?' selected':''}>Tracked</option>
+          <option value="no"${m.tracked===false||m.tracked==='no'?' selected':''}>Not tracked</option>
+        </select></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Goals per Role</span><span style="font-size:11px;color:var(--i3)">level override → flat default → effective</span></div>
+      <div style="overflow-x:auto"><table style="font-size:13px"><thead><tr><th>Role</th><th style="text-align:center">Level Goal</th><th style="text-align:center">Flat Default</th><th style="text-align:center">Effective</th></tr></thead><tbody>${roleRows}</tbody></table></div>
+    </div>`;
+  const ov=document.getElementById('member-profile-overlay');
+  ov.style.display='block';document.body.style.overflow='hidden';
+  ov.onclick=function(e){if(e.target===ov)closeMemberProfile();};
+}
+
+async function updateMemberField(idx,field,value){
+  const cfg=getCfg();cfg.members[idx][field]=value;await saveCfg(cfg);toast('Saved','tgood');
+}
+
+function closeMemberProfile(){
+  document.getElementById('member-profile-overlay').style.display='none';document.body.style.overflow='';renderUserList();
+}
+
+function openGoalDetail(memberName){
+  const cfg=getCfg();const m=cfg.members.find(x=>x.name===memberName);if(!m)return;
+  const goals=cfg.goals||{},matrix=cfg.goalsMatrix||{};
+  const {d,from,to}=getGoalsPeriodData();
+  const userD=d.filter(r=>r.user===memberName);
+  const goal=getUserDailyGoal(memberName,goals,matrix,userD);
+  const days=[];
+  const cur=new Date(from),end=new Date(to);
+  while(cur<=end){const dow=cur.getDay();if(dow!==0&&dow!==6)days.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
+  const totalDays=days.length||1;
+  const avg=userD.length>0?(userD.length/totalDays).toFixed(1):0;
+  const pct=goal>0?Math.round((parseFloat(avg)/goal)*100):null;
+  const sc=pct===null?'var(--i3)':pct>=90?'var(--gr)':pct>=70?'var(--am)':'var(--re)';
+  const ini=memberName.replace(/\./g,' ').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const lvlBadge=m.level?`<span style="font-size:11px;background:var(--pud);color:var(--re);padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">${m.level}</span>`:'';
+  document.getElementById('goal-detail-avatar').textContent=ini;
+  document.getElementById('goal-detail-name').innerHTML=memberName+lvlBadge;
+  document.getElementById('goal-detail-meta').textContent=`${m.team||'No team'} · ${from} → ${to} · ${totalDays} working days`;
+  const byDay={};userD.forEach(r=>{byDay[r.date]=(byDay[r.date]||0)+1;});
+  const roleCounts={};userD.forEach(r=>{if(r.role)roleCounts[r.role]=(roleCounts[r.role]||0)+1;});
+  const topRoles=Object.entries(roleCounts).sort((a,b)=>b[1]-a[1]);
+  const clientCounts={};userD.forEach(r=>{if(r.client)clientCounts[r.client]=(clientCounts[r.client]||0)+1;});
+  const topClients=Object.entries(clientCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const dayBars=days.map(day=>{
+    const count=byDay[day]||0;
+    const hit=goal>0?count>=goal:null;
+    const pctBar=goal>0?Math.min(100,Math.round(count/goal*100)):0;
+    const color=hit===null?'var(--s2)':hit?'var(--gr)':count>0?'var(--am)':'var(--bor)';
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0">
+      <div title="${day}: ${count}" style="width:100%;height:60px;border-radius:4px;background:var(--s2);overflow:hidden;position:relative">
+        <div style="position:absolute;bottom:0;left:0;right:0;background:${color};height:${goal>0?pctBar:count>0?100:0}%;transition:height .3s"></div>
+      </div>
+      <div style="font-size:9px;color:var(--i3);white-space:nowrap">${day.slice(5)}</div>
+      <div style="font-size:10px;font-weight:700;color:${count>0?'var(--ink)':'var(--i3)'}">${count||''}</div>
+    </div>`;
+  }).join('');
+  const weeklyData={};
+  userD.forEach(r=>{
+    const dt=new Date(r.date+'T12:00:00');const mon=new Date(dt);mon.setDate(dt.getDate()-((dt.getDay()+6)%7));
+    const wk=mon.toISOString().slice(0,10);
+    if(!weeklyData[wk])weeklyData[wk]={count:0,worth:0};
+    weeklyData[wk].count++;weeklyData[wk].worth+=r.amount;
+  });
+  const weekRows=Object.entries(weeklyData).sort((a,b)=>a[0].localeCompare(b[0])).map(([wk,info])=>{
+    const wPct=goal>0?Math.round((info.count/(goal*5))*100):null;
+    const wc=wPct===null?'var(--i3)':wPct>=90?'var(--gr)':wPct>=70?'var(--am)':'var(--re)';
+    return`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--bor)">Week of ${wk}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor);font-weight:700">${info.count}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor)">$${Math.round(info.worth).toLocaleString()}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--bor)">${wPct!==null?`<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden"><div style="height:100%;background:${wc};width:${Math.min(100,wPct)}%"></div></div><span style="font-size:11px;font-weight:700;color:${wc}">${wPct}%</span></div>`:'—'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('goal-detail-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem">
+      <div class="mc mcr"><div class="mcl">Total Claims</div><div class="mcv">${userD.length.toLocaleString()}</div><div class="mcs">in period</div></div>
+      <div class="mc"><div class="mcl">Daily Avg</div><div class="mcv">${avg}</div><div class="mcs">claims/day</div></div>
+      <div class="mc"><div class="mcl">Goal</div><div class="mcv">${goal>0?goal+'<span style="font-size:14px">/day</span>':'—'}</div><div class="mcs">${m.goalOverride?'override':m.level?'level goal':'role goal'}</div></div>
+      <div class="mc" style="${pct!==null?'border-color:'+sc+'33':''}"><div class="mcl">vs Goal</div><div class="mcv" style="color:${sc}">${pct!==null?pct+'%':'—'}</div><div class="mcs" style="color:${sc}">${pct!==null?(pct>=90?'✓ on track':pct>=70?'~ close':'✗ behind'):'no goal set'}</div></div>
+      <div class="mc"><div class="mcl">Days Active</div><div class="mcv">${Object.keys(byDay).length}</div><div class="mcs">of ${totalDays} work days</div></div>
+      <div class="mc mcg"><div class="mcl">Claim Worth</div><div class="mcv" style="font-size:18px">$${Math.round(userD.reduce((s,r)=>s+r.amount,0)).toLocaleString()}</div><div class="mcs">total</div></div>
+    </div>
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="ch"><span class="ct">Daily Activity</span><span style="font-size:12px;color:var(--i3)">${days.length} working days${goal>0?' · goal: '+goal+'/day':''}</span></div>
+      <div style="padding:1rem;overflow-x:auto">
+        <div style="display:flex;gap:4px;align-items:flex-end;min-width:${Math.max(600,days.length*28)}px;height:80px">${dayBars}</div>
+        <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--i3)">
+          <span><span style="width:10px;height:10px;border-radius:2px;background:var(--gr);display:inline-block;margin-right:3px"></span>Met goal</span>
+          <span><span style="width:10px;height:10px;border-radius:2px;background:var(--am);display:inline-block;margin-right:3px"></span>Partial</span>
+          <span><span style="width:10px;height:10px;border-radius:2px;background:var(--bor);display:inline-block;margin-right:3px"></span>No activity</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+      <div class="card"><div class="ch"><span class="ct">By Role</span></div><div style="padding:.5rem 0">${topRoles.length?topRoles.map(([role,cnt])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 14px"><div style="flex:1;font-size:13px;font-weight:600">${role}</div><div style="flex:2;display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:var(--s2);border-radius:4px;overflow:hidden"><div style="height:100%;background:var(--re);width:${userD.length>0?Math.round(cnt/userD.length*100):0}%"></div></div><span style="font-size:12px;font-weight:700;min-width:24px">${cnt}</span><span style="font-size:11px;color:var(--i3)">${userD.length>0?Math.round(cnt/userD.length*100):0}%</span></div></div>`).join(''):'<div style="padding:1rem;text-align:center;color:var(--i3);font-size:12px">No data</div>'}</div></div>
+      <div class="card"><div class="ch"><span class="ct">By Client</span></div><div style="padding:.5rem 0">${topClients.length?topClients.map(([cl,cnt])=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 14px"><div style="flex:1;font-size:13px;font-weight:600">${cl}</div><div style="flex:2;display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:var(--s2);border-radius:4px;overflow:hidden"><div style="height:100%;background:var(--re);width:${userD.length>0?Math.round(cnt/userD.length*100):0}%"></div></div><span style="font-size:12px;font-weight:700;min-width:24px">${cnt}</span></div></div>`).join(''):'<div style="padding:1rem;text-align:center;color:var(--i3);font-size:12px">No data</div>'}</div></div>
+    </div>
+    ${weekRows?`<div class="card"><div class="ch"><span class="ct">Weekly Breakdown</span></div><div style="overflow-x:auto"><table><thead><tr><th>Week</th><th>Claims</th><th>Worth</th><th>vs Goal</th></tr></thead><tbody>${weekRows}</tbody></table></div></div>`:''}`;
+  const ov=document.getElementById('goal-detail-overlay');
+  ov.style.display='block';document.body.style.overflow='hidden';
+  ov.onclick=function(e){if(e.target===ov)closeGoalDetail();};
+}
+function closeGoalDetail(){document.getElementById('goal-detail-overlay').style.display='none';document.body.style.overflow='';}
+
+function renderHistory(){
+  const cfg=getCfg();
+  const ht=document.getElementById('hist-team');
+  const hm=document.getElementById('hist-member');
+  if(ht){const curT=ht.value;ht.innerHTML='<option value="">All teams</option>'+cfg.teams.map(t=>`<option value="${t}"${t===curT?' selected':''}>${t}</option>`).join('');}
+  if(hm){const curM=hm.value,tf=ht?ht.value:'';const mems=tf?cfg.members.filter(m=>m.team===tf):cfg.members;hm.innerHTML='<option value="">All members</option>'+mems.map(m=>`<option value="${m.name}"${m.name===curM?' selected':''}>${m.name}</option>`).join('');}
+  const tf=ht?ht.value:'',mf=hm?hm.value:'';
+  let d=[...DATA];
+  if(tf)d=d.filter(r=>getUserTeam(r.user)===tf);
+  if(mf)d=d.filter(r=>r.user===mf);
+  if(!d.length){document.getElementById('history-grid').innerHTML='<div class="card"><div style="padding:2rem;text-align:center;color:var(--i3)"><h3 style="color:var(--ink);margin-bottom:6px">No data</h3></div></div>';return;}
+  const periods={};
+  d.forEach(r=>{
+    const y=r.date.slice(0,4),mo=parseInt(r.date.slice(5,7));
+    const half=mo<=2?'Jan–Feb':mo<=4?'Mar–Apr':mo<=6?'May–Jun':mo<=8?'Jul–Aug':mo<=10?'Sep–Oct':'Nov–Dec';
+    const key=`${y} ${half}`;
+    if(!periods[key])periods[key]={label:`${half} ${y}`,records:[],from:`${y}-${String(mo<=2?1:mo<=4?3:mo<=6?5:mo<=8?7:mo<=10?9:11).padStart(2,'0')}-01`,to:r.date};
+    periods[key].records.push(r);
+    if(r.date>periods[key].to)periods[key].to=r.date;
+  });
+  const sp=Object.entries(periods).sort((a,b)=>b[0].localeCompare(a[0]));
+  document.getElementById('history-grid').innerHTML=sp.map(([key,p])=>{
+    const total=p.records.length,worth=p.records.reduce((s,r)=>s+r.amount,0);
+    const members=[...new Set(p.records.map(r=>r.user))];
+    const days=[...new Set(p.records.map(r=>r.date))].length;
+    const roles={};p.records.forEach(r=>{if(r.role)roles[r.role]=(roles[r.role]||0)+1;});
+    const topRole=Object.entries(roles).sort((a,b)=>b[1]-a[1])[0];
+    return`<div class="card">
+      <div class="ch" style="background:var(--ink);border-radius:var(--rl) var(--rl) 0 0">
+        <div><div style="font-size:15px;font-weight:800;color:#fff">${p.label}</div><div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${p.from} → ${p.to}</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="btny" style="font-size:11px;background:var(--re);border-color:var(--redk);color:#fff" onclick="downloadHistoryCSV('${key}')">↓ CSV</button>
+          <button class="btny" style="font-size:11px;background:#0a2acc;border-color:#0a2acc;color:#fff" onclick="downloadHistoryPDF('${key}')">↓ PDF</button>
+        </div>
+      </div>
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:var(--reld);border-radius:8px;padding:.75rem"><div style="font-size:10px;font-weight:700;color:var(--re);text-transform:uppercase;letter-spacing:.06em">Claims</div><div style="font-size:22px;font-weight:800;color:var(--redk);margin-top:2px">${total.toLocaleString()}</div></div>
+        <div style="background:var(--pud);border-radius:8px;padding:.75rem"><div style="font-size:10px;font-weight:700;color:var(--re);text-transform:uppercase;letter-spacing:.06em">Claim Worth</div><div style="font-size:18px;font-weight:800;color:var(--redk);margin-top:2px">$${Math.round(worth).toLocaleString()}</div></div>
+      </div>
+      <div style="padding:.75rem 1rem;display:flex;gap:1rem;font-size:12px;flex-wrap:wrap;border-top:1px solid var(--bor)">
+        <div><span style="color:var(--i3)">Members</span> <strong>${members.length}</strong></div>
+        <div><span style="color:var(--i3)">Days</span> <strong>${days}</strong></div>
+        <div><span style="color:var(--i3)">Avg/day</span> <strong>${days>0?(total/days).toFixed(1):0}</strong></div>
+        ${topRole?`<div><span style="color:var(--i3)">Top role</span> <strong>${topRole[0]}</strong></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  window._histPeriods=periods;
+}
+
+function downloadHistoryCSV(key){
+  const p=window._histPeriods&&window._histPeriods[key];if(!p)return;
+  const rows=[['Date','Employee','Team','Claim ID','Visit ID','DOS','Payer','Client','Role','Amount','Action','Providers']];
+  p.records.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{rows.push([r.date,r.user,getUserTeam(r.user),r.id,r.visit_id,r.dos,r.payer,r.client,r.role,r.amount,r.action,r.provider_count]);});
+  const csv=rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`CB911_${p.label.replace(/[–\s]+/g,'_')}.csv`;a.click();
+  toast('CSV downloaded!','tgood');
+}
+
+function downloadHistoryPDF(key){
+  const p=window._histPeriods&&window._histPeriods[key];if(!p)return;
+  const worth=p.records.reduce((s,r)=>s+r.amount,0);
+  const uniqMem=[...new Set(p.records.map(r=>r.user))];
+  const days=[...new Set(p.records.map(r=>r.date))].length;
+  const avgDay=days>0?(p.records.length/days).toFixed(1):0;
+  const byMem={};
+  p.records.forEach(r=>{if(!byMem[r.user])byMem[r.user]={count:0,worth:0,days:new Set(),roles:{}};byMem[r.user].count++;byMem[r.user].worth+=r.amount;byMem[r.user].days.add(r.date);byMem[r.user].roles[r.role]=(byMem[r.user].roles[r.role]||0)+1;});
+  const memE=Object.entries(byMem).sort((a,b)=>b[1].count-a[1].count);
+  const memRows=memE.map(([n,info],i)=>`<tr style="${i%2?'background:#f4f3ef':''}"><td>${i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':''}${n}</td><td>${getUserTeam(n)||'—'}</td><td style="text-align:right;font-weight:700">${info.count}</td><td style="text-align:right">$${Math.round(info.worth).toLocaleString()}</td><td style="text-align:right">${info.days.size}</td><td style="text-align:right">${(info.count/Math.max(1,info.days.size)).toFixed(1)}</td><td>${Object.entries(info.roles).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—'}</td></tr>`).join('');
+  const topC=Object.entries(p.records.reduce((a,r)=>{if(r.client)a[r.client]=(a[r.client]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1])[0];
+  const topP=Object.entries(p.records.reduce((a,r)=>{if(r.payer)a[r.payer]=(a[r.payer]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1])[0];
+  const avgW=p.records.length>0?(worth/p.records.length).toFixed(2):0;
+  const facts=[
+    `${p.records.length.toLocaleString()} total claims by ${uniqMem.length} members over ${days} active days`,
+    `Team averaged ${avgDay} claims per active day`,
+    `Average claim worth: $${parseFloat(avgW).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+    `Total claim worth: $${Math.round(worth).toLocaleString()}`,
+    topC?`Most active client: ${topC[0]} (${topC[1]} claims, ${Math.round(topC[1]/p.records.length*100)}% of total)`:'',
+    topP?`Most frequent payer: ${topP[0]} (${topP[1]} claims)`:'',
+    memE.length?`Top performer: ${memE[0][0]} — ${memE[0][1].count} claims`:'',
+  ].filter(Boolean);
+  const recRows=p.records.sort((a,b)=>a.date.localeCompare(b.date)).map((r,i)=>`<tr style="${i%2?'background:#f4f3ef':''}"><td>${r.date}</td><td>${r.user}</td><td>${getUserTeam(r.user)||'—'}</td><td style="font-family:monospace;font-size:10px">${r.id||'—'}</td><td>${r.client||'—'}</td><td>${r.payer||'—'}</td><td style="font-family:monospace;font-size:10px">${r.dos||'—'}</td><td>${r.role||'—'}</td><td style="text-align:right">$${r.amount.toFixed(2)}</td><td>${r.action||'—'}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Archive — CB911 ${p.label}</title><style>body{font-family:Arial,sans-serif;color:#0f1a3a;padding:28px;max-width:1100px;margin:0 auto;font-size:11px}h1{font-size:20px;font-weight:800;margin-bottom:4px}h2{font-size:13px;font-weight:700;margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid #1a3aff;text-transform:uppercase;letter-spacing:.05em}.sub{color:#3a4a7a;margin-bottom:18px}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}.stat{background:#f0f4ff;border-radius:6px;padding:10px 12px}.stat-label{font-size:9px;font-weight:700;color:#7a88b8;text-transform:uppercase;letter-spacing:.06em}.stat-val{font-size:18px;font-weight:800;margin-top:3px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}th{background:#0f1a3a;color:#fff;padding:6px 9px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase}td{padding:5px 9px;border-bottom:1px solid #e0dbd3}.facts{background:#eef0ff;border-left:4px solid #1a3aff;border-radius:0 6px 6px 0;padding:12px 14px;margin-bottom:18px}.facts li{margin-bottom:4px}.footer{margin-top:16px;font-size:9px;color:#7a88b8;border-top:1px solid #e0dbd3;padding-top:10px}@media print{.no-print{display:none}}</style></head><body>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="display:flex;align-items:center;gap:9px"><div style="width:28px;height:28px;background:#1a3aff;border-radius:6px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><strong style="font-size:13px">ProdLabs — CB911</strong></div><button class="no-print" onclick="window.print()" style="padding:6px 13px;background:#1a3aff;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;font-size:11px">🖨 Print / Save PDF</button></div>
+  <h1>Archive: ${p.label}</h1><div class="sub">${p.from} → ${p.to} · Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+  <div class="stats"><div class="stat"><div class="stat-label">Total Claims</div><div class="stat-val" style="color:#1a3aff">${p.records.length.toLocaleString()}</div></div><div class="stat"><div class="stat-label">Claim Worth</div><div class="stat-val" style="color:#0a2acc">$${Math.round(worth).toLocaleString()}</div></div><div class="stat"><div class="stat-label">Members</div><div class="stat-val">${uniqMem.length}</div></div><div class="stat"><div class="stat-label">Active Days</div><div class="stat-val">${days}</div></div><div class="stat"><div class="stat-label">Avg/Day</div><div class="stat-val">${avgDay}</div></div></div>
+  <h2>📊 Outstanding Facts</h2><div class="facts"><ul style="list-style:disc;padding-left:16px">${facts.map(f=>`<li>${f}</li>`).join('')}</ul></div>
+  <h2>👥 Team Member Summary</h2><table><thead><tr><th>Member</th><th>Team</th><th>Claims</th><th>Worth</th><th>Days</th><th>Avg/Day</th><th>Top Role</th></tr></thead><tbody>${memRows}</tbody></table>
+  <h2>📋 All Records — ${p.records.length.toLocaleString()} total</h2><table><thead><tr><th>Date</th><th>Employee</th><th>Team</th><th>Claim ID</th><th>Client</th><th>Payer</th><th>DOS</th><th>Role</th><th>Amount</th><th>Action</th></tr></thead><tbody>${recRows}</tbody></table>
+  <div class="footer">ProdLabs · CB911 · ${p.label} · Confidential · ${new Date().toISOString().slice(0,10)}</div>
+  </body></html>`;
+  const win=window.open('','_blank');if(win){win.document.write(html);win.document.close();}
+  toast('PDF ready — Ctrl+P to save','tgood');
+}
+
+// ── BOOT ──────────────────────────────────────────────────────
+(async()=>{
+  await loadCfg();
+  document.getElementById('load').style.display='none';
+  document.getElementById('login').style.display='flex';
+})();
+</script>
+</body>
+</html>
