@@ -1,0 +1,107 @@
+/* ============================================================
+ *  app.js — main router + boot
+ * ============================================================
+ *  Globals exposed:
+ *  - Router.go(view, opts)  - swap to a view
+ *
+ *  Views: 'landing' | 'auth' | 'wizard' | 'app'
+ *  The 'app' view dispatches by session.type to Super/Manager/MemberView.
+ * ============================================================ */
+
+const Router = (() => {
+
+  const VIEWS = ['landing', 'auth', 'wizard', 'app'];
+
+  function go(view, opts = {}) {
+    if (!VIEWS.includes(view)) view = 'landing';
+
+    // for 'app' route, must have a session
+    if (view === 'app') {
+      const session = State.currentSession();
+      if (!session) { go('landing'); return; }
+    }
+
+    // hide all
+    VIEWS.forEach(v => {
+      const el = document.getElementById(v);
+      if (el) el.classList.remove('active');
+    });
+
+    // kill splash if present
+    const sp = document.getElementById('splash');
+    if (sp) sp.style.display = 'none';
+
+    // show target
+    const target = document.getElementById(view);
+    if (target) target.classList.add('active');
+
+    // dispatch
+    if (view === 'landing') Landing.render();
+    else if (view === 'auth') AuthView.render(opts);
+    else if (view === 'wizard') Wizard.render(opts);
+    else if (view === 'app') renderApp();
+
+    window.scrollTo(0, 0);
+  }
+
+  function renderApp() {
+    const session = State.currentSession();
+    if (!session) { go('landing'); return; }
+
+    const root = document.getElementById('app');
+    const company = State.get().company.name || 'Chargebacks911';
+
+    // build app shell once per render
+    root.innerHTML = `
+      <div class="topbar">
+        <div class="brand">
+          <div class="shield">${Utils.icon('shield', 20)}</div>
+          <div class="brand-text">
+            ProdLabs
+            <small>${escape(company)}</small>
+          </div>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="tbu">
+          <span class="badge ${session.type==='super'?'badge-super':session.type==='manager'?'badge-mgr':'badge-mem'}">${session.type}</span>
+          ${escape(session.user.displayName)}
+        </div>
+        <div class="tb-actions">
+          <button class="topbar-btn" id="tb-logout">${Utils.icon('logout',14)} Sign Out</button>
+        </div>
+      </div>
+      <div class="tabs" id="app-tabs"></div>
+      <div class="main" id="app-main"></div>
+    `;
+
+    document.getElementById('tb-logout').onclick = () => {
+      Auth.logout();
+      Utils.toast('Signed out');
+      go('landing');
+    };
+
+    if (session.type === 'super') SuperView.render(session);
+    else if (session.type === 'manager') ManagerView.render(session);
+    else if (session.type === 'member') MemberView.render(session);
+  }
+
+  function escape(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  return { go };
+
+})();
+
+// ===== BOOT =====
+document.addEventListener('DOMContentLoaded', () => {
+  const session = State.currentSession();
+  if (session) Router.go('app');
+  else Router.go('landing');
+});
+
+// listen for refresh events from anywhere
+document.addEventListener('app:refresh', () => {
+  const active = document.querySelector('#landing.active, #auth.active, #wizard.active, #app.active');
+  if (active) Router.go(active.id);
+});

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProdLabs · Chargebacks911</title>
+  <meta name="description" content="ProdLabs — internal productivity platform for Chargebacks911">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js (loaded but not used in Phase 1; Phase 2 will use it heavily) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" defer></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- Loading splash (shown until JS boot completes) -->
+  <div id="splash">
+    <div class="splash-logo">
+      <div class="shield">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/>
+        </svg>
+      </div>
+      ProdLabs
+    </div>
+    <div class="spinner"></div>
+  </div>
+
+  <!-- View containers (router toggles .active on these) -->
+  <div id="landing"></div>
+  <div id="auth"></div>
+  <div id="wizard"></div>
+  <div id="app"></div>
+
+  <!-- Scripts: load order matters (modules are IIFEs that depend on each other) -->
+  <script src="js/utils.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/views/landing.js"></script>
+  <script src="js/views/auth.js"></script>
+  <script src="js/views/wizard.js"></script>
+  <script src="js/views/super.js"></script>
+  <script src="js/views/manager.js"></script>
+  <script src="js/views/member.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
