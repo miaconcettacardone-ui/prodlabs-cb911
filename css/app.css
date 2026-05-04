@@ -501,3 +501,141 @@
   .wiz-step .wsl { display: none; }
   .auth-card { padding: 2rem 1.5rem; }
 }
+
+/* ============================================================
+ * PHASE 2 — Manager view polish
+ * Chart containers, leaderboards, member cards, goal bars
+ * ============================================================ */
+
+/* sized container so Chart.js responsive sizing works */
+.chart-wrap {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+.chart-wrap canvas { max-width: 100%; }
+
+/* generic progress bar (used by goal tracker + leaderboard fills) */
+.bar-track {
+  height: 8px;
+  background: var(--s2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--cb-red);
+  border-radius: var(--r-pill);
+  transition: width var(--t-slow) var(--ease);
+}
+.goal-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--bor);
+}
+.goal-row:last-child { border-bottom: none; padding-bottom: 0; }
+.goal-row:first-child { padding-top: 0; }
+
+/* leaderboard rows */
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--bor);
+}
+.lb-row:last-child { border-bottom: none; }
+.lb-rank {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--s2); color: var(--i2);
+  font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  flex-shrink: 0;
+}
+.lb-rank.gold   { background: var(--cb-red);  color: #fff; }
+.lb-rank.silver { background: var(--cb-gold); color: #fff; }
+.lb-rank.bronze { background: var(--bl);      color: #fff; }
+.lb-name {
+  flex: 0 0 auto; min-width: 90px; max-width: 140px;
+  font-weight: 600; font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lb-bar {
+  flex: 1; height: 6px;
+  background: var(--s2); border-radius: var(--r-pill);
+  overflow: hidden; min-width: 40px;
+}
+.lb-bar-fill {
+  height: 100%; border-radius: var(--r-pill);
+  transition: width var(--t-slow) var(--ease);
+}
+.lb-val {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 13px;
+  min-width: 50px; text-align: right;
+  flex-shrink: 0;
+}
+
+/* member roster grid (Team tab) */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+.member-card {
+  background: var(--sur);
+  border: 1px solid var(--bor);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
+  cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+  overflow: hidden;
+}
+.member-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-md);
+  border-color: var(--cb-red-mid);
+}
+.member-card .mc-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--bor);
+}
+.member-card .mc-id { flex: 1; min-width: 0; }
+.member-card .mc-name {
+  font-weight: 700; font-size: 14px;
+  font-family: var(--font-display);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.member-card .mc-sub {
+  font-size: 11px; color: var(--i3);
+  margin-top: 4px;
+}
+.member-card .mc-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+}
+.member-card .mc-stat {
+  padding: 1rem 0.5rem;
+  border-right: 1px solid var(--bor);
+}
+.member-card .mc-stat:last-child { border-right: none; }
+.member-card .mc-stat-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--i3); text-transform: uppercase; letter-spacing: .07em;
+  margin-bottom: 6px;
+}
+.member-card .mc-stat-val {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 800;
+  letter-spacing: -.02em; line-height: 1;
+}
+
+/* sortable column headers in activity table */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--t-fast) var(--ease);
+}
+th.sortable:hover { color: var(--cb-red); }
+
