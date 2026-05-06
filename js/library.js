@@ -1,8 +1,33 @@
 /* ============================================================
- *  library.js — pre-built options the wizard offers
- *  ============================================================
- *  Devs: extend these arrays to add more options without
- *  touching wizard code.
+ *  library.js — preset options the wizard and views offer
+ * ============================================================
+ *
+ *  WHAT THIS FILE IS:
+ *  This is the "catalog" of things teams can choose from when
+ *  setting themselves up:
+ *    - Departments (Production, Sales, Support, etc.)
+ *    - Work units (Chargeback Case, Sales Call, etc.)
+ *    - Tracked fields (Amount, Outcome, Notes, etc.)
+ *    - Suggested roles per department
+ *
+ *  WHY HERE INSTEAD OF DATABASE-SEEDED?
+ *  These rarely change and they're shared across all teams.
+ *  Hardcoding them in this file means:
+ *    - Wizard, manager view, and member view all see the same options
+ *    - Adding a new work unit is a one-file change
+ *    - The rebuild team can drop this into a seed migration
+ *
+ *  HOW TO EXTEND:
+ *  Add new entries to the relevant array — do NOT touch wizard
+ *  or view code. The wizard reads from these arrays at render time.
+ *
+ *  HOW THE LOOKUPS WORK:
+ *  - LIBRARY.workUnitLabel(id, overrides) — looks up the human-readable
+ *    label for a work-unit id. If the team has a custom label override
+ *    (e.g. they call "Chargeback Case" a "Dispute"), that wins.
+ *  - LIBRARY.fieldDef(id) — returns the {label, type, options, hint}
+ *    metadata for a field id, so the form knows whether to render
+ *    a number input or a dropdown.
  * ============================================================ */
 
 const LIBRARY = {

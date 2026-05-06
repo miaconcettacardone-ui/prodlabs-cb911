@@ -639,3 +639,84 @@ th.sortable {
 }
 th.sortable:hover { color: var(--cb-red); }
 
+
+/* ============================================================
+ * PHASE 3 — utility classes + state classes
+ * Added so views can stop using inline style="..." for things
+ * like text size, padding, hit/miss colors, etc.
+ * ============================================================ */
+
+/* spacing utilities (matches Tailwind-style naming) */
+.mb-6  { margin-bottom: 6px; }
+.ml-6  { margin-left: 6px; }
+.py-0  { padding-top: 0 !important; padding-bottom: 0 !important; }
+.py-12 { padding-top: 12px; padding-bottom: 12px; }
+
+/* type utilities */
+.text-xs     { font-size: 12px; }
+.text-center { text-align: center; }
+
+/* layout helpers used by phase 3 views */
+.form-narrow  { max-width: 680px; }
+.pill-list    { display: flex; flex-wrap: wrap; gap: 6px; }
+.row-actions  { white-space: nowrap; text-align: right; }
+.row-actions .icon-btn + .icon-btn { margin-left: 4px; }
+
+/* xs pill variant */
+.pill-xs { font-size: 10px; padding: 2px 8px; }
+
+/* leaderboard body wrapper (more compact than default card-body) */
+.lb-body { padding-top: 8px; padding-bottom: 8px; }
+
+/* leaderboard fill colors per rank */
+.lb-bar-fill-1 { background: var(--cb-red); }
+.lb-bar-fill-2 { background: var(--cb-gold); }
+.lb-bar-fill-3 { background: var(--bl); }
+
+/* leaderboard value color states */
+.lb-val-good { color: var(--gr); }
+.lb-val-warn { color: var(--am); }
+.lb-val-bad  { color: var(--cb-red); }
+
+/* goal label / value formatting */
+.goal-label {
+  font-weight: 600; font-size: 13px;
+}
+.goal-val {
+  font-size: 13px; font-weight: 700;
+  font-family: var(--font-display);
+}
+.goal-val-hit  { color: var(--gr); }
+.bar-fill-hit  { background: var(--gr); }
+
+/* key-value rows in settings */
+.kv-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--bor);
+}
+.kv-row:last-child { border-bottom: none; }
+.kv-label { font-weight: 600; }
+
+/* CSV import modal */
+.csv-template {
+  background: var(--s2); padding: 8px 10px;
+  border-radius: var(--r-sm); font-size: 11px;
+  font-family: var(--font-mono); white-space: pre;
+  overflow-x: auto; margin-top: 6px;
+  max-height: 100px;
+}
+.csv-issue-list {
+  margin: 8px 0 0 18px;
+  font-size: 12px;
+  max-height: 160px; overflow-y: auto;
+}
+.csv-issue-list li { margin-bottom: 2px; }
+
+#csv-text {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+}
+
+

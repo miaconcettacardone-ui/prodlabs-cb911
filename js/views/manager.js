@@ -1,45 +1,33 @@
 /* ============================================================
- *  views/manager.js — Manager dashboard (Phase 2)
+ *  views/manager.js — Manager dashboard (Phase 3)
  * ============================================================
  *  Tabs: Overview · Approvals · Team · Activity · Log Work · Settings
  *
- *  Polished to match super.js. Adds:
- *   - Real Chart.js charts (records-over-time line, by-work-unit bar,
- *     by-member bar, day-of-week pattern)
- *   - Today's team goal tracker (aggregated across team)
- *   - Leaderboards (top by total, top by goal hit %)
- *   - Per-member drill-down (records, charts, goals)
- *   - Sortable + filterable activity table
+ *  Responsibility: rendering + tab routing only. Business logic
+ *  lives in Analytics, chart construction in Charts, persistence
+ *  in State, config in CONFIG.
  *
- *  Phase 3 will add: CSV import, edit/delete records, deeper filters.
+ *  Phase 3 additions:
+ *    - CSV / TSV bulk import (Activity tab)
+ *    - Edit & delete records (icon buttons in activity table)
+ *    - Stable behavior when CONFIG flags toggle features off
  *
- *  CHART LIFECYCLE: every chart we mount is registered in `_charts` and
- *  destroyed on re-render so we don't leak when tabs change.
- *
- *  TZ NOTE for devs: "today" / "this week" / "this month" all use the
- *  user's local timezone via Utils.todayISO(). Real backend will need an
- *  explicit company-level TZ + week-start-day setting. See SPEC.md (Phase 4).
+ *  TZ NOTE for devs: "today" / "this week" / "this month" all use
+ *  the user's local timezone via Utils.todayISO(). Real backend
+ *  needs an explicit company-level TZ setting. Week start comes
+ *  from CONFIG.WEEK_START. See SPEC.md.
  * ============================================================ */
 
 const ManagerView = (() => {
 
   let tab = 'overview';
-  let drillMember = null;     // email of member being drilled into (Team tab)
+  let drillMember = null;
   let activitySort = { col: 'date', dir: 'desc' };
   let activityFilter = { search: '', memberEmail: '', workUnit: '', dateFrom: '', dateTo: '' };
 
-  // active chart instances by canvas id (so we can destroy on re-render)
-  const _charts = {};
-  function destroyCharts() {
-    Object.keys(_charts).forEach(id => {
-      try { _charts[id].destroy(); } catch (_) {}
-      delete _charts[id];
-    });
-  }
-
-  // ---- main entry --------------------------------------------
+  // ----- main entry -----------------------------------------
   function render(session) {
-    destroyCharts();
+    Charts.destroyAll();
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
     const team = session.team;
@@ -94,14 +82,11 @@ const ManagerView = (() => {
     const records = State.recordsOfTeam(team.id);
     const members = State.membersOfTeam(team.id);
     const today = Utils.todayISO();
-    const weekStart = startOfWeekISO(today);
+    const periods = Analytics.periodCounts(records, today);
     const monthPfx = today.slice(0, 7);
-
     const todayRecs = records.filter(r => r.date === today);
-    const weekRecs  = records.filter(r => r.date >= weekStart && r.date <= today);
     const monthRecs = records.filter(r => r.date.startsWith(monthPfx));
-
-    const goalsActive = Object.entries(team.goals || {}).filter(([id,v]) => v > 0);
+    const goalsActive = Analytics.activeGoals(team);
     const pendingCount = State.pendingForUser(session).length;
 
     main.innerHTML = `
@@ -117,50 +102,19 @@ const ManagerView = (() => {
       </div>
 
       <div class="metric-grid">
-        ${metric('Today',      todayRecs.length,  'records logged today',  'r')}
-        ${metric('This Week',  weekRecs.length,   'week-to-date',          'b')}
-        ${metric('This Month', monthRecs.length,  'month-to-date',         'g')}
-        ${metric('All Time',   records.length.toLocaleString(), 'total records', 'a')}
+        ${metric('Today',      periods.today,                 'records logged today',  'r')}
+        ${metric('This Week',  periods.thisWeek,              'week-to-date',          'b')}
+        ${metric('This Month', periods.thisMonth,             'month-to-date',         'g')}
+        ${metric('All Time',   periods.allTime.toLocaleString(), 'total records',      'a')}
       </div>
 
-      ${goalsActive.length ? `
-        <div class="card">
-          <div class="card-head">
-            <span class="card-title">Today's Team Goals</span>
-            <span class="muted" style="font-size:12px">${todayRecs.length} record${todayRecs.length!==1?'s':''} · ${members.length} member${members.length!==1?'s':''}</span>
-          </div>
-          <div class="card-body">
-            ${goalsActive.map(([id, perPersonTarget]) => {
-              const teamTarget = perPersonTarget * Math.max(members.length, 1);
-              const done = todayRecs.filter(r => r.workUnit === id).length;
-              const pct = Math.min(100, Math.round((done / Math.max(teamTarget, 1)) * 100));
-              const hit = done >= teamTarget;
-              return `
-                <div class="goal-row">
-                  <div class="flex jb ac" style="margin-bottom:6px">
-                    <div>
-                      <span style="font-weight:600;font-size:13px">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
-                      <span class="muted" style="font-size:11px;margin-left:6px">${perPersonTarget}/day per person</span>
-                    </div>
-                    <span style="font-size:13px;font-weight:700;color:${hit?'var(--gr)':'var(--ink)'}">
-                      ${done} / ${teamTarget} ${hit ? '✓' : ''}
-                    </span>
-                  </div>
-                  <div class="bar-track">
-                    <div class="bar-fill" style="width:${pct}%;background:${hit?'var(--gr)':'var(--cb-red)'}"></div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      ` : ''}
+      ${goalsActive.length ? renderTeamGoalsCard(team, members, todayRecs, goalsActive) : ''}
 
       <div class="split-2">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">Records — Last 30 Days</span>
-            <span class="muted" style="font-size:12px">daily activity</span>
+            <span class="card-title">Records — Last ${CONFIG.TREND_CHART_DAYS} Days</span>
+            <span class="muted text-xs">daily activity</span>
           </div>
           <div class="card-body">
             ${records.length ? `<div class="chart-wrap"><canvas id="ch-trend"></canvas></div>`
@@ -171,7 +125,7 @@ const ManagerView = (() => {
         <div class="card">
           <div class="card-head">
             <span class="card-title">By Work Unit — This Month</span>
-            <span class="muted" style="font-size:12px">${monthRecs.length} record${monthRecs.length!==1?'s':''}</span>
+            <span class="muted text-xs">${monthRecs.length} record${monthRecs.length!==1?'s':''}</span>
           </div>
           <div class="card-body">
             ${monthRecs.length ? `<div class="chart-wrap"><canvas id="ch-wu"></canvas></div>`
@@ -184,20 +138,20 @@ const ManagerView = (() => {
         <div class="card">
           <div class="card-head">
             <span class="card-title">${Utils.icon('crown',14)} Top Performers</span>
-            <span class="muted" style="font-size:12px">this month</span>
+            <span class="muted text-xs">this month</span>
           </div>
           ${members.length && monthRecs.length
-            ? renderLeaderboard(buildTopByTotal(members, monthRecs), 'records')
+            ? renderLeaderboard(Analytics.buildTopByTotal(members, monthRecs), 'records')
             : `<div class="card-body">${emptyState('Nothing yet', members.length ? 'No records this month yet.' : 'Add team members first.', 'crown')}</div>`}
         </div>
 
         <div class="card">
           <div class="card-head">
             <span class="card-title">${Utils.icon('check',14)} Goal Hit Rate</span>
-            <span class="muted" style="font-size:12px">last 14 days</span>
+            <span class="muted text-xs">last ${CONFIG.GOAL_HIT_RATE_DAYS} days</span>
           </div>
           ${members.length && goalsActive.length
-            ? renderLeaderboard(buildGoalHitRate(team, members, records), 'pct')
+            ? renderLeaderboard(Analytics.buildGoalHitRate(team, members, records), 'pct')
             : `<div class="card-body">${emptyState('No goals to track', goalsActive.length ? 'Add team members to track goal hit rates.' : 'Set daily goals in Settings to track hit rates.', 'check')}</div>`}
         </div>
       </div>
@@ -207,15 +161,47 @@ const ManagerView = (() => {
           <span class="card-title">Recent Activity</span>
           <button class="btn btn-ghost btn-sm" data-go="activity">View all ${Utils.icon('arrow', 12)}</button>
         </div>
-        ${renderActivityTableSmall(team, members, records.slice(-10).reverse())}
+        ${renderActivityTable(team, members, records.slice(-CONFIG.RECENT_ACTIVITY_SIZE).reverse(), { compact: true })}
       </div>
     `;
 
     bindLinks(main, session);
+    bindRowActions(main, session);
 
-    // mount charts after DOM is in place
-    if (records.length)   mountTrendChart('ch-trend', records, 30);
-    if (monthRecs.length) mountWorkUnitChart('ch-wu', team, monthRecs);
+    if (records.length)   Charts.trend('ch-trend', records);
+    if (monthRecs.length) Charts.byWorkUnit('ch-wu', team, monthRecs);
+  }
+
+  // Today's Team Goals card
+  function renderTeamGoalsCard(team, members, todayRecs, goalsActive) {
+    return `
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Today's Team Goals</span>
+          <span class="muted text-xs">${todayRecs.length} record${todayRecs.length!==1?'s':''} · ${members.length} member${members.length!==1?'s':''}</span>
+        </div>
+        <div class="card-body">
+          ${goalsActive.map(([id, perPersonTarget]) => {
+            const teamTarget = perPersonTarget * Math.max(members.length, 1);
+            const done = todayRecs.filter(r => r.workUnit === id).length;
+            const pct = Math.min(100, Math.round((done / Math.max(teamTarget, 1)) * 100));
+            const hit = done >= teamTarget;
+            return `
+              <div class="goal-row">
+                <div class="flex jb ac mb-6">
+                  <div>
+                    <span class="goal-label">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
+                    <span class="muted text-xs ml-6">${perPersonTarget}/day per person</span>
+                  </div>
+                  <span class="goal-val ${hit?'goal-val-hit':''}">${done} / ${teamTarget} ${hit ? '✓' : ''}</span>
+                </div>
+                <div class="bar-track"><div class="bar-fill ${hit?'bar-fill-hit':''}" style="width:${pct}%"></div></div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
   }
 
   // ============================================================
@@ -233,9 +219,7 @@ const ManagerView = (() => {
 
       ${pending.length ? `
         <div class="card">
-          <div class="card-head">
-            <span class="card-title">Pending Requests · ${pending.length}</span>
-          </div>
+          <div class="card-head"><span class="card-title">Pending Requests · ${pending.length}</span></div>
           <div class="card-body">
             ${pending.map(p => `
               <div class="pending-card" data-pid="${p.id}">
@@ -294,7 +278,7 @@ const ManagerView = (() => {
           <thead><tr><th>Name</th><th>Status</th><th>Decided</th><th>Note</th></tr></thead>
           <tbody>
             ${hist.map(p => `<tr>
-              <td><strong>${escape(p.displayName)}</strong><div class="muted" style="font-size:11px">${escape(p.email)}</div></td>
+              <td><strong>${escape(p.displayName)}</strong><div class="muted text-xs">${escape(p.email)}</div></td>
               <td><span class="pill ${p.status==='approved'?'pill-g':'pill-r'}">${p.status}</span></td>
               <td>${Utils.fmtRelative(p.decidedAt)}</td>
               <td>${p.decisionNote ? escape(p.decisionNote) : '<span class="muted">—</span>'}</td>
@@ -336,7 +320,7 @@ const ManagerView = (() => {
 
     main.querySelectorAll('[data-drill]').forEach(el => {
       el.onclick = (e) => {
-        if (e.target.closest('[data-rm]')) return; // don't drill on remove click
+        if (e.target.closest('[data-rm]')) return;
         drillMember = el.dataset.drill;
         render(session);
       };
@@ -353,18 +337,17 @@ const ManagerView = (() => {
   }
 
   function renderMemberCard(team, m, allRecords) {
-    const myRecs = allRecords.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase());
     const today = Utils.todayISO();
     const monthPfx = today.slice(0, 7);
+    const myRecs = allRecords.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase());
     const monthRecs = myRecs.filter(r => r.date.startsWith(monthPfx));
     const todayRecs = myRecs.filter(r => r.date === today);
+    const todayHit = Analytics.memberGoalHitPctForDate(team, m, allRecords, today);
 
-    const goalsActive = Object.entries(team.goals || {}).filter(([id,v]) => v > 0);
-    const todayHit = goalsActive.length
-      ? Math.round((goalsActive.filter(([id,target]) =>
-          todayRecs.filter(r => r.workUnit === id).length >= target
-        ).length / goalsActive.length) * 100)
-      : null;
+    const hitColor = todayHit==null ? 'var(--i3)'
+      : todayHit>=100 ? 'var(--gr)'
+      : todayHit>=50  ? 'var(--am)'
+      : 'var(--cb-red)';
 
     return `
       <div class="member-card" data-drill="${escape(m.email)}">
@@ -372,7 +355,7 @@ const ManagerView = (() => {
           <div class="avatar avatar-lg">${Utils.initials(m.displayName)}</div>
           <div class="mc-id">
             <div class="mc-name">${escape(m.displayName)}</div>
-            <div class="mc-sub">${m.role ? `<span class="pill pill-r" style="font-size:10px">${escape(m.role)}</span>` : '<span class="muted">No role</span>'}</div>
+            <div class="mc-sub">${m.role ? `<span class="pill pill-r pill-xs">${escape(m.role)}</span>` : '<span class="muted">No role</span>'}</div>
           </div>
           <button class="icon-btn" data-rm="${escape(m.email)}" title="Remove member">${Utils.icon('trash',14)}</button>
         </div>
@@ -387,7 +370,7 @@ const ManagerView = (() => {
           </div>
           <div class="mc-stat">
             <div class="mc-stat-label">Today's Goals</div>
-            <div class="mc-stat-val" style="color:${todayHit==null?'var(--i3)':todayHit>=100?'var(--gr)':todayHit>=50?'var(--am)':'var(--cb-red)'}">${todayHit==null?'—':todayHit+'%'}</div>
+            <div class="mc-stat-val" style="color:${hitColor}">${todayHit==null?'—':todayHit+'%'}</div>
           </div>
         </div>
       </div>
@@ -398,14 +381,9 @@ const ManagerView = (() => {
     const team = session.team;
     const myRecs = allRecords.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase());
     const today = Utils.todayISO();
-    const weekStart = startOfWeekISO(today);
-    const monthPfx = today.slice(0, 7);
-
+    const periods = Analytics.periodCounts(myRecs, today);
     const todayRecs = myRecs.filter(r => r.date === today);
-    const weekRecs  = myRecs.filter(r => r.date >= weekStart && r.date <= today);
-    const monthRecs = myRecs.filter(r => r.date.startsWith(monthPfx));
-
-    const goalsActive = Object.entries(team.goals || {}).filter(([id,v]) => v > 0);
+    const goalsActive = Analytics.activeGoals(team);
 
     main.innerHTML = `
       <div class="page-header">
@@ -419,17 +397,15 @@ const ManagerView = (() => {
       </div>
 
       <div class="metric-grid">
-        ${metric('Today',      todayRecs.length, 'logged today',  'r')}
-        ${metric('This Week',  weekRecs.length,  'week-to-date',  'b')}
-        ${metric('This Month', monthRecs.length, 'month-to-date', 'g')}
-        ${metric('All Time',   myRecs.length.toLocaleString(), 'total records', 'a')}
+        ${metric('Today',      periods.today,     'logged today',  'r')}
+        ${metric('This Week',  periods.thisWeek,  'week-to-date',  'b')}
+        ${metric('This Month', periods.thisMonth, 'month-to-date', 'g')}
+        ${metric('All Time',   periods.allTime.toLocaleString(), 'total records', 'a')}
       </div>
 
       ${goalsActive.length ? `
         <div class="card">
-          <div class="card-head">
-            <span class="card-title">Today's Goal Progress</span>
-          </div>
+          <div class="card-head"><span class="card-title">Today's Goal Progress</span></div>
           <div class="card-body">
             ${goalsActive.map(([id, target]) => {
               const done = todayRecs.filter(r => r.workUnit === id).length;
@@ -437,13 +413,11 @@ const ManagerView = (() => {
               const hit = done >= target;
               return `
                 <div class="goal-row">
-                  <div class="flex jb ac" style="margin-bottom:6px">
-                    <span style="font-weight:600;font-size:13px">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
-                    <span style="font-size:13px;font-weight:700;color:${hit?'var(--gr)':'var(--ink)'}">${done} / ${target} ${hit?'✓':''}</span>
+                  <div class="flex jb ac mb-6">
+                    <span class="goal-label">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
+                    <span class="goal-val ${hit?'goal-val-hit':''}">${done} / ${target} ${hit?'✓':''}</span>
                   </div>
-                  <div class="bar-track">
-                    <div class="bar-fill" style="width:${pct}%;background:${hit?'var(--gr)':'var(--cb-red)'}"></div>
-                  </div>
+                  <div class="bar-track"><div class="bar-fill ${hit?'bar-fill-hit':''}" style="width:${pct}%"></div></div>
                 </div>
               `;
             }).join('')}
@@ -453,7 +427,7 @@ const ManagerView = (() => {
 
       <div class="split-2">
         <div class="card">
-          <div class="card-head"><span class="card-title">Last 30 Days</span></div>
+          <div class="card-head"><span class="card-title">Last ${CONFIG.TREND_CHART_DAYS} Days</span></div>
           <div class="card-body">
             ${myRecs.length ? `<div class="chart-wrap"><canvas id="ch-mem-trend"></canvas></div>`
               : emptyState('No records yet', 'This chart will populate as records are logged.', 'chart')}
@@ -471,23 +445,24 @@ const ManagerView = (() => {
       <div class="card">
         <div class="card-head">
           <span class="card-title">All Records</span>
-          <span class="muted" style="font-size:12px">${myRecs.length} total · showing latest 50</span>
+          <span class="muted text-xs">${myRecs.length} total · showing latest ${CONFIG.MEMBER_DETAIL_HISTORY}</span>
         </div>
-        ${myRecs.length ? renderActivityTableSmall(team, [m], myRecs.slice().reverse().slice(0, 50))
+        ${myRecs.length ? renderActivityTable(team, [m], myRecs.slice().reverse().slice(0, CONFIG.MEMBER_DETAIL_HISTORY), { showActions: true })
           : `<div class="card-body">${emptyState('No records', 'Log work for this member from the Log Work tab.', 'chart')}</div>`}
       </div>
     `;
 
     main.querySelector('[data-back]').onclick = () => { drillMember = null; render(session); };
+    bindRowActions(main, session);
 
     if (myRecs.length) {
-      mountTrendChart('ch-mem-trend', myRecs, 30);
-      mountWorkUnitChart('ch-mem-wu', team, myRecs);
+      Charts.trend('ch-mem-trend', myRecs);
+      Charts.byWorkUnit('ch-mem-wu', team, myRecs);
     }
   }
 
   // ============================================================
-  //  ACTIVITY — full sortable, filterable table + extra charts
+  //  ACTIVITY — sortable, filterable table + extra charts + CSV
   // ============================================================
   function renderActivity(main, session) {
     const team = session.team;
@@ -499,6 +474,10 @@ const ManagerView = (() => {
         <div>
           <h2>Activity</h2>
           <div class="ph-sub">Full record history for ${escape(team.name)} · ${records.length.toLocaleString()} record${records.length!==1?'s':''}</div>
+        </div>
+        <div class="flex gap-8">
+          ${CONFIG.FEATURES.csvImport ? `<button class="btn btn-ghost" id="act-import">${Utils.icon('upload',14)} Bulk Import</button>` : ''}
+          <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
         </div>
       </div>
 
@@ -522,10 +501,10 @@ const ManagerView = (() => {
       <div class="card">
         <div class="card-head">
           <span class="card-title">All Records</span>
-          <span class="muted" style="font-size:12px"><span id="act-count">${records.length}</span> shown</span>
+          <span class="muted text-xs"><span id="act-count">${records.length}</span> shown</span>
         </div>
-        <div class="card-body" style="padding-bottom:0">
-          <div class="fbar" style="margin-bottom:1rem">
+        <div class="card-body py-0">
+          <div class="fbar mb-2">
             <div class="fg">
               <label>Search</label>
               <input id="af-search" type="text" placeholder="member, work unit, notes..." value="${escape(activityFilter.search)}">
@@ -555,7 +534,7 @@ const ManagerView = (() => {
             <button class="btn btn-ghost btn-sm" id="af-clear">Clear</button>
           </div>
         </div>
-        <div id="act-table-wrap">${renderActivityTable(team, members, records)}</div>
+        <div id="act-table-wrap">${renderActivityTable(team, members, records, { sortable: true, showActions: true })}</div>
       </div>
     `;
 
@@ -565,21 +544,28 @@ const ManagerView = (() => {
       activityFilter.workUnit    = document.getElementById('af-wu').value;
       activityFilter.dateFrom    = document.getElementById('af-from').value;
       activityFilter.dateTo      = document.getElementById('af-to').value;
-      const filtered = filterRecords(records, members, activityFilter);
+      const filtered = Analytics.filterRecords(records, members, activityFilter);
       document.getElementById('act-count').textContent = filtered.length;
-      document.getElementById('act-table-wrap').innerHTML = renderActivityTable(team, members, filtered);
+      document.getElementById('act-table-wrap').innerHTML = renderActivityTable(team, members, filtered, { sortable: true, showActions: true });
       bindSortHeaders(team, members, records);
+      bindRowActions(main, session);
     };
-    document.getElementById('af-search').oninput = debounce(apply, 200);
+    document.getElementById('af-search').oninput = debounce(apply, CONFIG.DEBOUNCE_MS_INPUT);
     ['af-member','af-wu','af-from','af-to'].forEach(id => document.getElementById(id).onchange = apply);
     document.getElementById('af-clear').onclick = () => {
       activityFilter = { search:'', memberEmail:'', workUnit:'', dateFrom:'', dateTo:'' };
       renderActivity(main, session);
     };
+    bindLinks(main, session);
     bindSortHeaders(team, members, records);
+    bindRowActions(main, session);
 
-    if (records.length && members.length) mountByMemberChart('ch-act-mem', members, records);
-    if (records.length) mountDayOfWeekChart('ch-act-dow', records);
+    if (CONFIG.FEATURES.csvImport) {
+      document.getElementById('act-import').onclick = () => openImportModal(session);
+    }
+
+    if (records.length && members.length) Charts.byMember('ch-act-mem', members, records);
+    if (records.length) Charts.dayOfWeek('ch-act-dow', records);
   }
 
   function bindSortHeaders(team, members, records) {
@@ -588,11 +574,150 @@ const ManagerView = (() => {
         const col = th.dataset.sort;
         if (activitySort.col === col) activitySort.dir = activitySort.dir === 'asc' ? 'desc' : 'asc';
         else { activitySort.col = col; activitySort.dir = 'desc'; }
-        const filtered = filterRecords(records, members, activityFilter);
-        document.getElementById('act-table-wrap').innerHTML = renderActivityTable(team, members, filtered);
+        const filtered = Analytics.filterRecords(records, members, activityFilter);
+        document.getElementById('act-table-wrap').innerHTML = renderActivityTable(team, members, filtered, { sortable: true, showActions: true });
         bindSortHeaders(team, members, records);
+        bindRowActions(document.getElementById('app-main'), { team }); // session shape ok for action-binding lookups
       };
     });
+  }
+
+  // ============================================================
+  //  CSV IMPORT MODAL
+  // ============================================================
+  function openImportModal(session) {
+    const team = session.team;
+    const template = CSVImport.templateFor(team);
+    Utils.openModal(`
+      <h3>Bulk Import Records</h3>
+      <p class="helper mb-2">
+        Paste rows from Excel, Google Sheets, or any CSV. First row must be headers.
+        Required columns: <strong>${CONFIG.CSV_REQUIRED_COLUMNS.join(', ')}</strong>.
+      </p>
+      <details class="helper mb-2" style="cursor:pointer">
+        <summary><strong>Show template &amp; tips</strong></summary>
+        <pre class="csv-template">${escape(template)}</pre>
+        <ul style="margin:8px 0 0 18px;font-size:12px;color:var(--i2)">
+          <li><strong>date</strong> — YYYY-MM-DD or M/D/YYYY</li>
+          <li><strong>member</strong> — display name OR email of someone on this team</li>
+          <li><strong>workUnit</strong> — id (e.g. chargeback_case) or label (e.g. Chargeback Case)</li>
+          <li>Other columns matched against your team's tracked fields (case-insensitive).</li>
+        </ul>
+      </details>
+      <textarea id="csv-text" rows="8" placeholder="Paste CSV/TSV here..." class="mono text-xs"></textarea>
+      <div id="csv-result" class="mt-2"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" id="csv-cancel">Cancel</button>
+        <button class="btn btn-ghost btn-sm" id="csv-validate">Validate</button>
+        <button class="btn btn-primary btn-sm" id="csv-commit" disabled>Import 0 rows</button>
+      </div>
+    `);
+
+    let parsed = { rows: [], errors: [], warnings: [] };
+
+    const validate = () => {
+      const text = document.getElementById('csv-text').value;
+      parsed = CSVImport.parse(text, team);
+      const result = document.getElementById('csv-result');
+      const commitBtn = document.getElementById('csv-commit');
+      commitBtn.disabled = parsed.rows.length === 0;
+      commitBtn.textContent = `Import ${parsed.rows.length} row${parsed.rows.length!==1?'s':''}`;
+
+      const parts = [];
+      if (parsed.rows.length) {
+        parts.push(`<div class="notice success"><strong>${parsed.rows.length}</strong> valid row${parsed.rows.length!==1?'s':''} ready to import.</div>`);
+      }
+      if (parsed.errors.length) {
+        parts.push(`<div class="notice danger"><strong>${parsed.errors.length} error${parsed.errors.length!==1?'s':''}:</strong><ul class="csv-issue-list">${parsed.errors.slice(0,10).map(e=>`<li>${escape(e)}</li>`).join('')}${parsed.errors.length>10?`<li>... and ${parsed.errors.length-10} more</li>`:''}</ul></div>`);
+      }
+      if (parsed.warnings.length) {
+        parts.push(`<div class="notice warn"><strong>${parsed.warnings.length} warning${parsed.warnings.length!==1?'s':''}:</strong><ul class="csv-issue-list">${parsed.warnings.slice(0,10).map(e=>`<li>${escape(e)}</li>`).join('')}${parsed.warnings.length>10?`<li>... and ${parsed.warnings.length-10} more</li>`:''}</ul></div>`);
+      }
+      result.innerHTML = parts.join('');
+    };
+
+    document.getElementById('csv-text').oninput = debounce(validate, CONFIG.DEBOUNCE_MS_INPUT);
+    document.getElementById('csv-validate').onclick = validate;
+    document.getElementById('csv-cancel').onclick = () => Utils.closeModal();
+    document.getElementById('csv-commit').onclick = () => {
+      if (!parsed.rows.length) return;
+      const n = CSVImport.commit(parsed.rows);
+      Utils.closeModal();
+      Utils.toast(`Imported ${n} record${n!==1?'s':''}`, 'good');
+      render(session);
+    };
+  }
+
+  // ============================================================
+  //  EDIT / DELETE RECORD MODALS (called from row actions)
+  // ============================================================
+  function openEditModal(session, recordId) {
+    const team = session.team;
+    const rec = State.get().records.find(r => r.id === recordId);
+    if (!rec) { Utils.toast('Record not found', 'bad'); return; }
+    const members = State.membersOfTeam(team.id);
+
+    Utils.openModal(`
+      <h3>Edit Record</h3>
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label class="label">Date</label>
+          <input type="date" id="ed-date" value="${escape(rec.date)}">
+        </div>
+        <div class="form-row">
+          <label class="label">Member</label>
+          <select id="ed-member">
+            ${members.map(m => `<option value="${escape(m.email)}" ${m.email.toLowerCase()===rec.memberEmail.toLowerCase()?'selected':''}>${escape(m.displayName)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="label">Work Unit</label>
+        <select id="ed-wu">
+          ${team.workUnits.map(id => `<option value="${escape(id)}" ${id===rec.workUnit?'selected':''}>${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</option>`).join('')}
+        </select>
+      </div>
+      ${team.fields.map(f => {
+        const def = LIBRARY.fieldDef(f);
+        if (!def) return '';
+        const cur = rec.fields?.[f] ?? '';
+        if (def.type === 'enum') {
+          return `<div class="form-row"><label class="label">${def.label}</label><select id="ed-${f}">${def.options.map(o=>`<option ${o===cur?'selected':''}>${o}</option>`).join('')}</select></div>`;
+        }
+        return `<div class="form-row"><label class="label">${def.label}</label><input ${def.type==='number'?'type="number" step="0.01"':''} id="ed-${f}" value="${escape(String(cur))}" placeholder="${def.hint}"></div>`;
+      }).join('')}
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" id="ed-cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="ed-save">Save</button>
+      </div>
+    `);
+    document.getElementById('ed-cancel').onclick = () => Utils.closeModal();
+    document.getElementById('ed-save').onclick = () => {
+      const date = document.getElementById('ed-date').value;
+      const wu = document.getElementById('ed-wu').value;
+      const memberEmail = document.getElementById('ed-member').value;
+      if (!date || !wu) { Utils.toast('Date and work unit required','bad'); return; }
+      const fields = {};
+      team.fields.forEach(f => {
+        const el = document.getElementById('ed-'+f);
+        if (el) fields[f] = (LIBRARY.fieldDef(f)?.type === 'number') ? (parseFloat(el.value)||0) : el.value;
+      });
+      State.updateRecord(recordId, { date, workUnit: wu, memberEmail, fields });
+      Utils.closeModal();
+      Utils.toast('Saved', 'good');
+      render(session);
+    };
+  }
+
+  function deleteRecord(session, recordId) {
+    if (!CONFIG.FEATURES.deleteRecords) {
+      Utils.toast('Delete is disabled', 'warn');
+      return;
+    }
+    if (!Utils.confirm('Delete this record? This cannot be undone.')) return;
+    State.deleteRecord(recordId);
+    Utils.toast('Deleted', 'good');
+    render(session);
   }
 
   // ============================================================
@@ -605,7 +730,7 @@ const ManagerView = (() => {
       <div class="page-header">
         <div><h2>Log Work</h2><div class="ph-sub">Add a new record for any team member.</div></div>
       </div>
-      <div class="card" style="max-width:680px">
+      <div class="card form-narrow">
         <div class="card-body">
           <div class="form-grid-2">
             <div class="form-row">
@@ -667,7 +792,7 @@ const ManagerView = (() => {
   // ============================================================
   function renderSettings(main, session) {
     const team = session.team;
-    const goalsActive = Object.entries(team.goals || {}).filter(([id,v])=>v>0);
+    const goalsActive = Analytics.activeGoals(team);
 
     main.innerHTML = `
       <div class="page-header">
@@ -694,9 +819,9 @@ const ManagerView = (() => {
       <div class="card">
         <div class="card-head">
           <span class="card-title">Work Units</span>
-          <span class="muted" style="font-size:12px">${team.workUnits.length} configured</span>
+          <span class="muted text-xs">${team.workUnits.length} configured</span>
         </div>
-        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:6px">
+        <div class="card-body pill-list">
           ${team.workUnits.length
             ? team.workUnits.map(id => `<span class="pill pill-r">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>`).join('')
             : '<span class="muted">None</span>'}
@@ -706,9 +831,9 @@ const ManagerView = (() => {
       <div class="card">
         <div class="card-head">
           <span class="card-title">Tracked Fields</span>
-          <span class="muted" style="font-size:12px">${team.fields.length} configured</span>
+          <span class="muted text-xs">${team.fields.length} configured</span>
         </div>
-        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:6px">
+        <div class="card-body pill-list">
           ${team.fields.length
             ? team.fields.map(f => {
                 const def = LIBRARY.fieldDef(f);
@@ -721,13 +846,13 @@ const ManagerView = (() => {
       <div class="card">
         <div class="card-head">
           <span class="card-title">Daily Goals</span>
-          <span class="muted" style="font-size:12px">per person</span>
+          <span class="muted text-xs">per person</span>
         </div>
         <div class="card-body">
           ${goalsActive.length
             ? goalsActive.map(([id,v]) => `
-                <div class="flex jb ac" style="padding:10px 0;border-bottom:1px solid var(--bor)">
-                  <span style="font-weight:600">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
+                <div class="kv-row">
+                  <span class="kv-label">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</span>
                   <strong>${v}/day</strong>
                 </div>
               `).join('')
@@ -738,7 +863,8 @@ const ManagerView = (() => {
     document.getElementById('ts-save').onclick = () => {
       const newName = document.getElementById('ts-name').value.trim();
       const newDept = document.getElementById('ts-dept').value.trim();
-      if (!newName) { Utils.toast('Team name required', 'bad'); return; }
+      if (newName.length < CONFIG.TEAM_NAME_MIN_LENGTH) { Utils.toast(`Team name must be at least ${CONFIG.TEAM_NAME_MIN_LENGTH} characters`, 'bad'); return; }
+      if (newName.length > CONFIG.TEAM_NAME_MAX_LENGTH) { Utils.toast(`Team name must be ${CONFIG.TEAM_NAME_MAX_LENGTH} characters or fewer`, 'bad'); return; }
       const t = State.teamById(team.id);
       Object.assign(t, { name: newName, department: newDept });
       State.save();
@@ -748,211 +874,27 @@ const ManagerView = (() => {
   }
 
   // ============================================================
-  //  CHART BUILDERS
+  //  SHARED RENDERERS
   // ============================================================
-  function chartColors() {
-    return {
-      red:    getCss('--cb-red')    || '#e63946',
-      redDk:  getCss('--cb-red-dk') || '#c92836',
-      gold:   getCss('--cb-gold')   || '#f5a623',
-      blue:   getCss('--bl')        || '#2563eb',
-      green:  getCss('--gr')        || '#10b981',
-      purple: getCss('--pu')        || '#7c3aed',
-      orange: getCss('--cb-orange') || '#ff6b3d',
-      ink:    getCss('--ink')       || '#0b1220',
-      i2:     getCss('--i2')        || '#4a5568',
-      i3:     getCss('--i3')        || '#8a94a6',
-      bor:    getCss('--bor')       || '#e0e6ef',
-    };
-  }
-  function getCss(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-  function paletteCycle() {
-    const c = chartColors();
-    return [c.red, c.blue, c.gold, c.green, c.purple, c.orange, c.redDk, c.i2];
-  }
-  function commonChartOpts() {
-    const c = chartColors();
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: c.ink, titleColor: '#fff', bodyColor: '#fff',
-          padding: 10, cornerRadius: 8, displayColors: false,
-          titleFont: { family: getCss('--font-display') || 'Sora', weight: '700' },
-          bodyFont:  { family: getCss('--font-body')    || 'Inter' },
-        },
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: c.i2, font: { size: 11 } } },
-        y: { beginAtZero: true, grid: { color: c.bor }, ticks: { color: c.i2, font: { size: 11 }, precision: 0 } },
-      },
-    };
-  }
-
-  function mountTrendChart(canvasId, records, days = 30) {
-    const cv = document.getElementById(canvasId);
-    if (!cv || typeof Chart === 'undefined') return;
-    const c = chartColors();
-
-    const labels = [];
-    const data = [];
-    const today = new Date(Utils.todayISO() + 'T00:00:00');
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const iso = d.toISOString().slice(0, 10);
-      labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-      data.push(records.filter(r => r.date === iso).length);
-    }
-
-    _charts[canvasId] = new Chart(cv, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data,
-          borderColor: c.red,
-          backgroundColor: hexToRgba(c.red, 0.12),
-          borderWidth: 2.5,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: c.red,
-          pointHoverBorderColor: '#fff',
-          pointHoverBorderWidth: 2,
-        }],
-      },
-      options: commonChartOpts(),
-    });
-  }
-
-  function mountWorkUnitChart(canvasId, team, records) {
-    const cv = document.getElementById(canvasId);
-    if (!cv || typeof Chart === 'undefined') return;
-
-    const counts = {};
-    records.forEach(r => { counts[r.workUnit] = (counts[r.workUnit] || 0) + 1; });
-    const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
-    const labels = entries.map(([id]) => LIBRARY.workUnitLabel(id, team.workUnitLabels));
-    const data   = entries.map(([,n]) => n);
-    const palette = paletteCycle();
-    const bg = data.map((_, i) => palette[i % palette.length]);
-
-    _charts[canvasId] = new Chart(cv, {
-      type: 'bar',
-      data: { labels, datasets: [{ data, backgroundColor: bg, borderRadius: 6, maxBarThickness: 38 }] },
-      options: { ...commonChartOpts(), indexAxis: 'y' },
-    });
-  }
-
-  function mountByMemberChart(canvasId, members, records) {
-    const cv = document.getElementById(canvasId);
-    if (!cv || typeof Chart === 'undefined') return;
-
-    const counts = members.map(m => ({
-      name: m.displayName,
-      n: records.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase()).length,
-    })).sort((a,b) => b.n - a.n);
-
-    const labels = counts.map(x => x.name);
-    const data   = counts.map(x => x.n);
-    const palette = paletteCycle();
-    const bg = data.map((_, i) => palette[i % palette.length]);
-
-    _charts[canvasId] = new Chart(cv, {
-      type: 'bar',
-      data: { labels, datasets: [{ data, backgroundColor: bg, borderRadius: 6, maxBarThickness: 38 }] },
-      options: { ...commonChartOpts(), indexAxis: 'y' },
-    });
-  }
-
-  function mountDayOfWeekChart(canvasId, records) {
-    const cv = document.getElementById(canvasId);
-    if (!cv || typeof Chart === 'undefined') return;
-    const c = chartColors();
-
-    const counts = [0,0,0,0,0,0,0]; // Sun..Sat
-    records.forEach(r => {
-      const [y, mo, d] = r.date.split('-').map(Number);
-      const dt = new Date(y, mo - 1, d);
-      counts[dt.getDay()]++;
-    });
-    // reorder Mon-first
-    const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const data   = [counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[0]];
-
-    _charts[canvasId] = new Chart(cv, {
-      type: 'bar',
-      data: { labels, datasets: [{ data, backgroundColor: c.red, borderRadius: 6, maxBarThickness: 38 }] },
-      options: commonChartOpts(),
-    });
-  }
-
-  // ============================================================
-  //  LEADERBOARDS
-  // ============================================================
-  function buildTopByTotal(members, records) {
-    const rows = members.map(m => {
-      const n = records.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase()).length;
-      return { email: m.email, name: m.displayName, value: n, display: n.toLocaleString() };
-    }).sort((a,b) => b.value - a.value).slice(0, 5);
-    const max = Math.max(1, ...rows.map(r => r.value));
-    rows.forEach(r => r.pct = Math.round((r.value / max) * 100));
-    return rows;
-  }
-
-  function buildGoalHitRate(team, members, allRecords) {
-    const goals = Object.entries(team.goals || {}).filter(([id,v]) => v > 0);
-    if (!goals.length || !members.length) return [];
-
-    const today = Utils.todayISO();
-    const days = [];
-    const end = new Date(today + 'T00:00:00');
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(end);
-      d.setDate(d.getDate() - i);
-      days.push(d.toISOString().slice(0, 10));
-    }
-
-    const rows = members.map(m => {
-      let hits = 0, total = 0;
-      const myRecs = allRecords.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase());
-      days.forEach(d => {
-        goals.forEach(([id, target]) => {
-          total++;
-          const done = myRecs.filter(r => r.date === d && r.workUnit === id).length;
-          if (done >= target) hits++;
-        });
-      });
-      const pct = total ? Math.round((hits / total) * 100) : 0;
-      return { email: m.email, name: m.displayName, value: pct, display: pct + '%', pct };
-    }).sort((a,b) => b.value - a.value).slice(0, 5);
-    return rows;
-  }
-
   function renderLeaderboard(rows, mode) {
     if (!rows.length) {
       return `<div class="card-body">${emptyState('No data', 'Nothing to rank yet.', 'crown')}</div>`;
     }
     return `
-      <div class="card-body" style="padding-top:8px;padding-bottom:8px">
+      <div class="card-body lb-body">
         ${rows.map((r, i) => {
-          const valColor = mode === 'pct'
-            ? (r.value >= 80 ? 'var(--gr)' : r.value >= 50 ? 'var(--am)' : 'var(--cb-red)')
-            : 'var(--ink)';
-          const barColor = i === 0 ? 'var(--cb-red)' : i === 1 ? 'var(--cb-gold)' : 'var(--bl)';
+          const valClass = mode === 'pct'
+            ? (r.value >= 80 ? 'lb-val-good' : r.value >= 50 ? 'lb-val-warn' : 'lb-val-bad')
+            : '';
+          const rankClass = i===0 ? 'gold' : i===1 ? 'silver' : i===2 ? 'bronze' : '';
+          const fillClass = i===0 ? 'lb-bar-fill-1' : i===1 ? 'lb-bar-fill-2' : 'lb-bar-fill-3';
           return `
             <div class="lb-row">
-              <div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
+              <div class="lb-rank ${rankClass}">${i+1}</div>
               <div class="avatar avatar-sm">${Utils.initials(r.name)}</div>
               <div class="lb-name">${escape(r.name)}</div>
-              <div class="lb-bar"><div class="lb-bar-fill" style="width:${r.pct}%;background:${barColor}"></div></div>
-              <div class="lb-val" style="color:${valColor}">${r.display}</div>
+              <div class="lb-bar"><div class="lb-bar-fill ${fillClass}" style="width:${r.pct}%"></div></div>
+              <div class="lb-val ${valClass}">${r.display}</div>
             </div>
           `;
         }).join('')}
@@ -960,63 +902,41 @@ const ManagerView = (() => {
     `;
   }
 
-  // ============================================================
-  //  ACTIVITY TABLE
-  // ============================================================
-  function renderActivityTableSmall(team, members, records) {
+  // Renders a record table. opts: { compact, sortable, showActions }
+  function renderActivityTable(team, members, records, opts) {
+    opts = opts || {};
     if (!records.length) {
-      return `<div class="card-body">${emptyState('No records yet', 'Records will show up here as they are logged.', 'chart')}</div>`;
+      return opts.sortable
+        ? emptyState('No records match', 'Try clearing some filters.', 'search')
+        : `<div class="card-body">${emptyState('No records yet', 'Records will show up here as they are logged.', 'chart')}</div>`;
     }
-    const showAmount  = team.fields.includes('amount');
-    const showOutcome = team.fields.includes('outcome');
-    return `
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Date</th><th>Member</th><th>Work Unit</th>
-            ${showAmount?'<th>Amount</th>':''}
-            ${showOutcome?'<th>Outcome</th>':''}
-          </tr></thead>
-          <tbody>
-            ${records.map(r => {
-              const m = members.find(x => x.email.toLowerCase() === r.memberEmail.toLowerCase())
-                    || State.findUserByEmail(r.memberEmail)?.user;
-              return `<tr>
-                <td>${r.date}</td>
-                <td><strong>${m ? escape(m.displayName) : escape(r.memberEmail)}</strong></td>
-                <td>${escape(LIBRARY.workUnitLabel(r.workUnit, team.workUnitLabels))}</td>
-                ${showAmount?`<td>${Utils.fmt$(r.fields?.amount||0)}</td>`:''}
-                ${showOutcome?`<td>${r.fields?.outcome?`<span class="pill ${r.fields.outcome==='Win'?'pill-g':r.fields.outcome==='Loss'?'pill-r':'pill-a'}">${escape(r.fields.outcome)}</span>`:'<span class="muted">—</span>'}</td>`:''}
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
 
-  function renderActivityTable(team, members, records) {
-    if (!records.length) {
-      return emptyState('No records match', 'Try clearing some filters.', 'search');
-    }
-    const sorted = sortRecords(records, members, activitySort);
     const showAmount  = team.fields.includes('amount');
     const showOutcome = team.fields.includes('outcome');
+    const showActions = opts.showActions && (CONFIG.FEATURES.editRecords || CONFIG.FEATURES.deleteRecords);
+
+    const sorted = opts.sortable ? Analytics.sortRecords(records, members, activitySort) : records;
+    const cap = opts.sortable ? CONFIG.ACTIVITY_TABLE_CAP : sorted.length;
     const arrow = (col) => activitySort.col === col
-      ? (activitySort.dir === 'asc' ? ' ↑' : ' ↓')
-      : '';
+      ? (activitySort.dir === 'asc' ? ' ↑' : ' ↓') : '';
+
+    const headerCell = (key, label) => opts.sortable
+      ? `<th data-sort="${key}" class="sortable">${label}${arrow(key)}</th>`
+      : `<th>${label}</th>`;
+
     return `
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th data-sort="date" class="sortable">Date${arrow('date')}</th>
-            <th data-sort="member" class="sortable">Member${arrow('member')}</th>
-            <th data-sort="workUnit" class="sortable">Work Unit${arrow('workUnit')}</th>
-            ${showAmount?`<th data-sort="amount" class="sortable">Amount${arrow('amount')}</th>`:''}
-            ${showOutcome?'<th>Outcome</th>':''}
+            ${headerCell('date', 'Date')}
+            ${headerCell('member', 'Member')}
+            ${headerCell('workUnit', 'Work Unit')}
+            ${showAmount ? headerCell('amount', 'Amount') : ''}
+            ${showOutcome ? '<th>Outcome</th>' : ''}
+            ${showActions ? '<th></th>' : ''}
           </tr></thead>
           <tbody>
-            ${sorted.slice(0, 200).map(r => {
+            ${sorted.slice(0, cap).map(r => {
               const m = members.find(x => x.email.toLowerCase() === r.memberEmail.toLowerCase())
                     || State.findUserByEmail(r.memberEmail)?.user;
               return `<tr>
@@ -1025,54 +945,26 @@ const ManagerView = (() => {
                 <td>${escape(LIBRARY.workUnitLabel(r.workUnit, team.workUnitLabels))}</td>
                 ${showAmount?`<td>${Utils.fmt$(r.fields?.amount||0)}</td>`:''}
                 ${showOutcome?`<td>${r.fields?.outcome?`<span class="pill ${r.fields.outcome==='Win'?'pill-g':r.fields.outcome==='Loss'?'pill-r':'pill-a'}">${escape(r.fields.outcome)}</span>`:'<span class="muted">—</span>'}</td>`:''}
+                ${showActions ? `<td class="row-actions">
+                  ${CONFIG.FEATURES.editRecords ? `<button class="icon-btn" data-edit="${escape(r.id)}" title="Edit">${Utils.icon('edit',14)}</button>` : ''}
+                  ${CONFIG.FEATURES.deleteRecords ? `<button class="icon-btn" data-del="${escape(r.id)}" title="Delete">${Utils.icon('trash',14)}</button>` : ''}
+                </td>` : ''}
               </tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
-      ${sorted.length > 200 ? `<div class="muted" style="text-align:center;padding:12px;font-size:12px">Showing first 200 of ${sorted.length}. Refine filters to narrow.</div>` : ''}
+      ${opts.sortable && sorted.length > cap ? `<div class="muted text-center text-xs py-12">Showing first ${cap} of ${sorted.length}. Refine filters to narrow.</div>` : ''}
     `;
   }
 
-  function filterRecords(records, members, f) {
-    const q = (f.search || '').trim().toLowerCase();
-    return records.filter(r => {
-      if (f.memberEmail && r.memberEmail.toLowerCase() !== f.memberEmail.toLowerCase()) return false;
-      if (f.workUnit && r.workUnit !== f.workUnit) return false;
-      if (f.dateFrom && r.date < f.dateFrom) return false;
-      if (f.dateTo   && r.date > f.dateTo)   return false;
-      if (q) {
-        const m = members.find(x => x.email.toLowerCase() === r.memberEmail.toLowerCase());
-        const hay = [
-          m ? m.displayName : '',
-          r.memberEmail,
-          r.workUnit,
-          ...Object.values(r.fields || {}).map(v => String(v)),
-        ].join(' ').toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
+  function bindRowActions(scope, session) {
+    if (!scope) return;
+    scope.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.onclick = () => openEditModal(session, btn.dataset.edit);
     });
-  }
-
-  function sortRecords(records, members, s) {
-    const col = s.col, dir = s.dir === 'asc' ? 1 : -1;
-    const memberName = (email) => {
-      const m = members.find(x => x.email.toLowerCase() === email.toLowerCase());
-      return m ? m.displayName.toLowerCase() : email.toLowerCase();
-    };
-    return records.slice().sort((a,b) => {
-      let av, bv;
-      switch (col) {
-        case 'member':   av = memberName(a.memberEmail); bv = memberName(b.memberEmail); break;
-        case 'workUnit': av = a.workUnit; bv = b.workUnit; break;
-        case 'amount':   av = Number(a.fields?.amount || 0); bv = Number(b.fields?.amount || 0); break;
-        case 'date':
-        default:         av = a.date; bv = b.date; break;
-      }
-      if (av < bv) return -1 * dir;
-      if (av > bv) return  1 * dir;
-      return 0;
+    scope.querySelectorAll('[data-del]').forEach(btn => {
+      btn.onclick = () => deleteRecord(session, btn.dataset.del);
     });
   }
 
@@ -1104,27 +996,6 @@ const ManagerView = (() => {
     main.querySelectorAll('[data-go]').forEach(el => {
       el.onclick = () => { tab = el.dataset.go; drillMember = null; render(session); };
     });
-  }
-
-  // Mon-start week — see TZ NOTE at top of file
-  function startOfWeekISO(isoDate) {
-    const [y, mo, d] = isoDate.split('-').map(Number);
-    const dt = new Date(y, mo - 1, d);
-    const day = dt.getDay(); // 0 = Sun
-    const diff = (day === 0 ? -6 : 1 - day);
-    dt.setDate(dt.getDate() + diff);
-    return dt.toISOString().slice(0, 10);
-  }
-
-  function hexToRgba(hex, alpha) {
-    const m = String(hex || '').replace('#','').match(/^([0-9a-f]{6}|[0-9a-f]{3})$/i);
-    if (!m) return `rgba(230,57,70,${alpha})`;
-    let h = m[1];
-    if (h.length === 3) h = h.split('').map(c => c+c).join('');
-    const r = parseInt(h.slice(0,2), 16);
-    const g = parseInt(h.slice(2,4), 16);
-    const b = parseInt(h.slice(4,6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   function debounce(fn, ms) {

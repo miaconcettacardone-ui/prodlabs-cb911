@@ -1,86 +1,145 @@
 # ProdLabs · Chargebacks911
 
-**Phase 1 prototype** — internal productivity platform for CB911.
+Internal team productivity platform — managers track work-unit output (chargebacks worked, alerts resolved, sales calls, etc.) for their teams, see real-time goal progress, and review historical trends.
 
-## What this is
+This repository is a **vanilla HTML/CSS/JS prototype** built to validate the product, design system, and user flows before the production rebuild. It is fully functional with `localStorage` persistence and is meant to run by opening `index.html` directly or via any static file server.
 
-A configurable team productivity dashboard. Managers run a setup wizard to define their team's work units, fields, roles, and goals. Members log work against those. Super admins see everything across the whole company.
+## Table of contents
 
-## How to run it
+- [Status](#status)
+- [Quick start](#quick-start)
+- [Project layout](#project-layout)
+- [The three roles](#the-three-roles)
+- [Companion docs](#companion-docs)
+- [What is prototype-only](#what-is-prototype-only)
+- [Conventions](#conventions)
 
-Open `index.html` in any modern browser. That's it. All data is stored in your browser's localStorage.
+## Status
 
+| Phase | Scope | State |
+|-------|-------|-------|
+| 1 | Auth, wizard, super admin view, basic manager/member views | ✅ Shipped |
+| 2 | Manager view polish: charts, leaderboards, drill-down, filters | ✅ Shipped |
+| 3 | Refactor for handoff + CSV import + edit/delete + member view polish + docs | ✅ Shipped (this commit) |
+| 4 | Production rebuild on real backend | 🚧 Dev team |
+
+## Quick start
+
+```bash
+git clone https://github.com/miaconcettacardone-ui/prodlabs-cb911.git
+cd prodlabs-cb911
+open index.html         # macOS — opens in default browser
+# or:
+python3 -m http.server  # then visit http://localhost:8000
 ```
-open index.html        # macOS
-start index.html       # Windows
-```
 
-For development, you may want to serve it locally to avoid browser quirks with `file://`:
+No build step. No `npm install`. The only external dependency is Chart.js, loaded from cdnjs. Everything else is plain ES2017 JavaScript.
 
-```
-# Python
-python3 -m http.server 8000
+The first time you load the app it will walk you through creating a super admin (the bootstrap flow). After that, sign out and try signing up as a manager — the request will appear in the super admin's Approvals queue.
 
-# Node
-npx serve .
-```
-
-Then visit http://localhost:8000
-
-## What works in Phase 1
-
-- 3-tier auth: Super Admin / Manager / Member with email + password
-- **Approval workflow:**
-  - First super admin: bootstraps automatically (becomes default approver)
-  - More super admins: must be approved by designated approvers
-  - Managers: approved by any super admin
-  - Members: approved by their team's manager
-- Full setup wizard for managers (work units, fields, roles, goals)
-- Polished super-admin dashboard with overview, approvals, teams, admins, settings
-- Working manager and member views (basic — Phase 2 will fully polish)
-- CB911 brand styling: deep navy + signature red, Sora + Inter fonts
-
-## File structure
+## Project layout
 
 ```
 prodlabs-cb911/
-├── index.html              # entry point
+├── index.html                # entry point; loads scripts in dep order
+├── README.md                 # you are here
+├── SPEC.md                   # feature spec, business rules, decisions
+├── DATA_MODEL.md             # entities, relationships, schema
+├── PERMISSIONS.md            # 3-tier auth matrix, approval flows
+│
 ├── css/
-│   ├── styles.css         # design system (CSS variables, components)
-│   └── app.css            # page-level styles (landing, wizard, app shell)
+│   ├── styles.css            # design tokens (CSS variables) + base components
+│   └── app.css               # page-specific styles (wizard, topbar, tabs, etc.)
+│
 └── js/
-    ├── utils.js           # toast, modal, icons, formatting helpers
-    ├── library.js         # pre-built work units, fields, roles, departments
-    ├── state.js           # central data model + localStorage persistence
-    ├── auth.js            # login, signup requests, approval logic
-    ├── app.js             # router + boot
+    ├── config.js             # ⭐ ALL TUNABLES — change values here, not in views
+    ├── utils.js              # tiny helpers: toast, modal, icons, dates, formatting
+    ├── library.js            # static config: work units, fields, departments, roles
+    ├── state.js              # data model + localStorage persistence
+    ├── auth.js               # auth/approval logic (Auth.approve, Auth.deny, etc.)
+    ├── charts.js             # Chart.js builders (trend, byWorkUnit, byMember, dayOfWeek)
+    ├── analytics.js          # pure data helpers: leaderboards, period bucketing, filters, sort
+    ├── csv.js                # CSV/TSV paste-import: parse + validate + commit
+    ├── app.js                # router (routes between landing/auth/wizard/app)
     └── views/
-        ├── landing.js     # public entry page (3 doorways)
-        ├── auth.js        # login + member signup
-        ├── wizard.js      # multi-step setup for super/manager
-        ├── super.js       # super admin dashboard (POLISHED)
-        ├── manager.js     # team manager dashboard (Phase 2 to polish)
-        └── member.js      # team member dashboard (Phase 2 to polish)
+        ├── landing.js        # logged-out landing page
+        ├── auth.js           # sign in / sign up
+        ├── wizard.js         # team setup wizard (manager flow)
+        ├── super.js          # super admin dashboard
+        ├── manager.js        # manager dashboard (Phase 2 polished)
+        └── member.js         # team member dashboard (Phase 3 polished)
 ```
 
-## What's coming in later phases
+### Module dependency order
 
-- **Phase 2:** Manager polish — Chart.js charts, leaderboards, daily goal tracking, etc.
-- **Phase 3:** CSV paste import, edit/delete records, filters & search, member view polish.
-- **Phase 4:** Full developer handoff docs (SPEC.md, DATA_MODEL.md, PERMISSIONS.md).
+The scripts in `index.html` are loaded in this order. Modules are IIFEs that depend on globals defined by earlier modules:
 
-## Notes for the dev team
+```
+config.js
+  ↓
+utils.js → library.js → state.js → auth.js
+  ↓
+charts.js → analytics.js → csv.js
+  ↓
+views/landing.js → views/auth.js → views/wizard.js
+  → views/super.js → views/manager.js → views/member.js
+  ↓
+app.js                 (router, depends on all views)
+```
 
-This is a **prototype** intended to demonstrate the structure, flows, and design. Production version should:
+When the dev team rebuilds, this dependency tree maps cleanly onto modules / packages / services.
 
-- Replace localStorage with a real database (Supabase recommended — same shape).
-- Replace plaintext password compare with proper auth (Supabase Auth).
-- Add real email notifications for approvals.
-- Add server-side enforcement of all RBAC rules (currently client-side only).
-- Audit log all sensitive actions (approvals, deletions, role changes).
+## The three roles
 
-The data model in `state.js` and the permission rules in `auth.js` are designed to map cleanly onto a Supabase schema.
+| Role | What they see | What they can do |
+|---|---|---|
+| **Super Admin** | Company-wide: all teams, all managers, all members, all records | Approve manager signups; manage other super admins; configure approval flow |
+| **Manager** | Their team only: members, records, goals, analytics | Approve member signups; log work for any member; bulk import records; edit/delete records; set team config |
+| **Member** | Their own data only: own records, own goals | Log own work; edit own records (delete only if `CONFIG.FEATURES.memberSelfDelete` is enabled) |
 
----
+Full role × action × condition matrix is in [PERMISSIONS.md](./PERMISSIONS.md).
 
-© 2026 Chargebacks911 · Internal use
+## Companion docs
+
+- **[SPEC.md](./SPEC.md)** — features, screens, user flows, business rules, edge cases, decisions made and why, what's deliberately out of scope
+- **[DATA_MODEL.md](./DATA_MODEL.md)** — every entity, every field, relationships, the suggested Postgres schema, indices, migration path from `localStorage` JSON
+- **[PERMISSIONS.md](./PERMISSIONS.md)** — the auth/permission matrix, approval workflows, edge cases (last super admin, orphaned teams, team transfer, member email change, etc.)
+
+## What is prototype-only
+
+These exist for the prototype and **must be replaced** before production:
+
+| Concern | Prototype | Production |
+|---|---|---|
+| Persistence | `localStorage` (single-browser) | Postgres (or whatever the dev team picks) |
+| Auth | passwords stored in plaintext in `state.js` | bcrypt/argon2 hashes; sessions; CSRF |
+| Approvals | inline mutation of `state.pending` array | event log + transactional state machine |
+| File I/O | none (CSV is paste-only) | upload + parse server-side; large file streaming |
+| Email | none (approvals never send notifications) | transactional email (e.g. Postmark, SES) |
+| Multi-company | hardcoded to one company in `CONFIG.BRAND` | proper tenant isolation |
+| Time zones | local browser TZ via `Utils.todayISO()` | per-company TZ + per-user TZ; week-start configurable |
+| Audit trail | none | who-did-what-when on every mutation |
+
+The prototype is intentionally permissive about these so it can demonstrate the user flows. **Do not ship the prototype.** It exists to communicate the design.
+
+## Conventions
+
+### Files & modules
+- Each module is an IIFE returning a public object: `const Foo = (() => { ... return { publicFn }; })();`
+- One module per concern: state, auth, charts, analytics, csv, etc.
+- Views never reach into each other — they navigate via the router (`Router.go(...)`).
+
+### Styling
+- Use CSS variables (`var(--cb-red)`, `var(--ink)`) — never hard-code colors in JS or CSS rules.
+- Define new utilities in `css/app.css` under the appropriate section header.
+- Avoid inline `style="..."` for static values. Inline is fine for **dynamic** values like progress-bar widths.
+
+### Data
+- All record fields go through `LIBRARY.fieldDef(id)` so types and labels are consistent.
+- Member references are by **email** (the unique key). Display names are denormalized for UI.
+
+### CONFIG
+- Any "magic number" you'd want to tune later goes in `js/config.js`. Examples: trend chart days, leaderboard size, table row caps, debounce ms.
+
+### Feature flags
+- `CONFIG.FEATURES.X` toggles features. Useful for soft-launching changes or hiding partially-built things from production.

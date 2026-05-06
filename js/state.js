@@ -1,8 +1,34 @@
 /* ============================================================
  *  state.js — central data model + persistence
- *  ============================================================
- *  PROTOTYPE: persists to localStorage.
- *  PRODUCTION: replace `loadState`/`saveState` with Supabase calls.
+ * ============================================================
+ *
+ *  WHAT THIS FILE IS:
+ *  This is the "database" for the prototype. It holds every
+ *  piece of business data — users, teams, records, approvals —
+ *  in one big in-memory object, and saves that object to the
+ *  browser's localStorage so it survives page refreshes.
+ *
+ *  WHY ONE FILE FOR ALL DATA?
+ *  In a real app you'd have a separate database table for each
+ *  entity (users, teams, records, etc.). Here we use one big
+ *  JSON object because:
+ *    - localStorage only holds strings, so we serialize/deserialize
+ *      one object instead of juggling dozens of keys.
+ *    - The whole prototype is small enough to fit in memory.
+ *    - The Laravel rebuild will normalize this into proper tables
+ *      (see DATA_MODEL.md for the migration plan).
+ *
+ *  THE PUBLIC API:
+ *  Other modules NEVER touch the `state` object directly. They
+ *  call State.X functions (State.addMember, State.deleteRecord,
+ *  etc.). Why? Because direct mutation could:
+ *    - Forget to call save() and lose data
+ *    - Skip validation
+ *    - Bypass the audit log we'll need to add later
+ *
+ *  Centralizing all writes through State.* makes it possible to
+ *  add cross-cutting features (audit, undo, server sync) in ONE
+ *  place when the rebuild happens.
  *
  *  Data model overview
  *  -------------------
@@ -18,11 +44,20 @@
  *    config:         { superAdminApprovers: email[] }
  *  }
  *
- *  Each entity uses email as the unique key (no separate username).
- *  Approvals: every signup creates a PendingRequest until approved.
+ *  Each entity uses EMAIL as the unique key (no separate user IDs).
+ *  This is a prototype simplification — production should use UUIDs
+ *  with email as a unique constraint. See DATA_MODEL.md.
+ *
+ *  PROTOTYPE behavior: persists to localStorage.
+ *  PRODUCTION rebuild: replace loadState/saveState with API calls.
+ *
+ *  Storage key comes from CONFIG.STORAGE_KEY.
  * ============================================================ */
 
-const STORAGE_KEY = 'prodlabs_cb911_v2';
+// Read the storage key from CONFIG so we have a single source of truth.
+// If we ever need to "version-bump" the data shape, we change it
+// in CONFIG and existing browsers reset cleanly.
+const STORAGE_KEY = CONFIG.STORAGE_KEY;
 
 const State = (() => {
 
@@ -45,29 +80,54 @@ const State = (() => {
   }
 
   // ---- load / save ------------------------------------------
+  // We cache the loaded state in `_cached` so we don't re-parse
+  // JSON on every call. The cache is updated when we save and
+  // wiped when we reset.
   let _cached = null;
+
+  // Load the entire state from localStorage. First call parses
+  // the JSON; subsequent calls return the cached object.
   function load() {
     if (_cached) return _cached;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      // If localStorage is empty (first run), use the default state.
       _cached = raw ? JSON.parse(raw) : defaultState();
-      // make sure new fields exist when migrating
+
+      // MIGRATION SAFETY: if we add a new top-level field to the
+      // state shape later, old saved data won't have it. We merge
+      // defaults onto loaded data so missing fields appear with
+      // sensible defaults instead of `undefined`.
       const def = defaultState();
-      _cached = { ...def, ..._cached, config: { ...def.config, ...(_cached.config||{}) } };
+      _cached = {
+        ...def,
+        ..._cached,
+        // Special-case `config` so its nested fields also merge.
+        config: { ...def.config, ...(_cached.config || {}) }
+      };
     } catch (e) {
+      // If JSON.parse blew up (corrupted localStorage somehow),
+      // fall back to defaults rather than crashing the app.
       console.error('State load failed:', e);
       _cached = defaultState();
     }
     return _cached;
   }
+
+  // Persist the in-memory state back to localStorage. Called by
+  // every State.* mutation function after it changes data.
   function save() {
     if (!_cached) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(_cached));
     } catch (e) {
+      // Could happen if localStorage is full (5-10MB limit) or
+      // disabled (private browsing on some browsers).
       console.error('State save failed:', e);
     }
   }
+
+  // Wipe everything. Used by the "reset prototype" flow and tests.
   function reset() {
     localStorage.removeItem(STORAGE_KEY);
     _cached = null;
@@ -165,19 +225,68 @@ const State = (() => {
     save();
     return team;
   }
+  // Add a single record. Used when the user logs work via the
+  // "Log Work" tab — one record at a time.
+  //
+  // The record gets a generated `id` like "r_1709123456789_x7k2j"
+  // — a timestamp + 5 random base-36 chars. This is unique enough
+  // for our prototype scale and fast to generate. Production will
+  // use proper UUIDs.
   function addRecord(data) {
     const s = load();
-    const rec = { id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), createdAt: Date.now(), ...data };
+    const rec = {
+      id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      createdAt: Date.now(),
+      ...data
+    };
     s.records.push(rec);
-    save();
+    save();  // persist after every single record
     return rec;
   }
+
+  // Bulk insert — used by CSV import. The KEY DIFFERENCE from
+  // addRecord is we call save() ONCE at the end, not after each
+  // record. localStorage.setItem is slow (~5-10ms per call), so
+  // 5000 individual saves = 25-50 SECONDS of frozen UI. One
+  // bulk save = a few milliseconds total.
+  //
+  // The id format includes the row index (`_${i}_`) to guarantee
+  // uniqueness even when many records get the same Date.now().
+  function addRecords(dataArray) {
+    const s = load();
+    const out = [];
+    const t0 = Date.now();
+    dataArray.forEach((data, i) => {
+      const rec = {
+        id: 'r_' + t0 + '_' + i + '_' + Math.random().toString(36).slice(2, 7),
+        createdAt: t0,
+        ...data
+      };
+      s.records.push(rec);
+      out.push(rec);
+    });
+    save();  // ONE save for the whole batch — this is the optimization
+    return out;
+  }
+
+  // Update one record by id. The `patch` object is merged into
+  // the existing record (so you can pass just the fields you
+  // want to change). Returns the updated record, or null if
+  // the id wasn't found.
   function updateRecord(id, patch) {
     const s = load();
     const i = s.records.findIndex(r => r.id === id);
-    if (i >= 0) { s.records[i] = { ...s.records[i], ...patch }; save(); return s.records[i]; }
+    if (i >= 0) {
+      s.records[i] = { ...s.records[i], ...patch };
+      save();
+      return s.records[i];
+    }
     return null;
   }
+
+  // Delete a record by id. Hard delete in the prototype —
+  // production should soft-delete (set a deletedAt timestamp)
+  // so we keep history and can support undo.
   function deleteRecord(id) {
     const s = load();
     s.records = s.records.filter(r => r.id !== id);
@@ -258,7 +367,7 @@ const State = (() => {
     teamForManager, teamById, membersOfTeam, recordsOfTeam,
     setSession, clearSession, currentSession,
     addSuperAdmin, addManager, addMember,
-    addTeam, addRecord, updateRecord, deleteRecord,
+    addTeam, addRecord, addRecords, updateRecord, deleteRecord,
     updateCompany, updateConfig, updateUser, deleteUser,
     addPending, updatePending, pendingForUser,
   };

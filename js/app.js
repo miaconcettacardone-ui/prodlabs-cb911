@@ -1,11 +1,36 @@
 /* ============================================================
  *  app.js — main router + boot
  * ============================================================
- *  Globals exposed:
- *  - Router.go(view, opts)  - swap to a view
  *
- *  Views: 'landing' | 'auth' | 'wizard' | 'app'
- *  The 'app' view dispatches by session.type to Super/Manager/MemberView.
+ *  WHAT THIS FILE IS:
+ *  This is the "traffic cop" of the whole app. When you click
+ *  "Sign In" or "Sign Up" or get bounced to the dashboard, the
+ *  Router decides which big view to show.
+ *
+ *  THE ROUTER MODEL:
+ *  Most modern web apps use URL-based routing (#/dashboard).
+ *  This prototype uses simpler "view-based" routing — there are
+ *  exactly 4 named views, and Router.go(viewName) switches between
+ *  them by toggling CSS classes.
+ *
+ *  Views:
+ *    'landing' - the logged-out home page
+ *    'auth'    - sign-in / sign-up forms
+ *    'wizard'  - team setup (newly-approved managers go here)
+ *    'app'     - the dashboard. Routes BY ROLE to:
+ *                  - SuperView (super_admin)
+ *                  - ManagerView (manager)
+ *                  - MemberView (member)
+ *
+ *  WHY THIS PATTERN?
+ *  - No URL routing means we don't have to deal with browser
+ *    history, deep links, or the back button. Simpler for a
+ *    prototype.
+ *  - The Laravel rebuild will use real URL routes, but the
+ *    "by role" dispatch in the dashboard still applies.
+ *
+ *  Globals exposed:
+ *    Router.go(view, opts)  - swap to a view
  * ============================================================ */
 
 const Router = (() => {

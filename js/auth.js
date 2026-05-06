@@ -1,9 +1,32 @@
 /* ============================================================
  *  auth.js — authentication + approval workflow
- *  ============================================================
- *  PROTOTYPE: plaintext password compare in localStorage.
- *  PRODUCTION: replace with Supabase Auth (signInWithPassword,
- *  signUp, magic-link, etc). Approval workflow stays in DB.
+ * ============================================================
+ *
+ *  WHAT THIS FILE IS:
+ *  Handles sign-in, sign-up, and the approval flow. When someone
+ *  tries to sign up as a manager or member, this module creates
+ *  a "PendingRequest" that has to be approved before they can
+ *  actually log in.
+ *
+ *  THE APPROVAL FLOW:
+ *  1. User submits signup form
+ *  2. Auth.requestSignup() creates a PendingRequest
+ *  3. Approver (super admin or manager) sees it in their queue
+ *  4. Approver clicks Approve or Deny
+ *  5. On approve: Auth.approve() creates the actual user record
+ *  6. User can now sign in
+ *
+ *  WHY APPROVAL MATTERS:
+ *  - Members aren't supposed to add themselves to teams without
+ *    their manager knowing.
+ *  - Managers aren't supposed to claim a manager role without a
+ *    super admin signing off.
+ *  - This is a tiny "least privilege" feature that keeps the
+ *    system tidy.
+ *
+ *  PROTOTYPE behavior: plaintext passwords compared in localStorage.
+ *  PRODUCTION rebuild: replace with proper auth (bcrypt + sessions).
+ *  See PERMISSIONS.md for the full role × action × condition matrix.
  *
  *  Approval rules
  *  --------------

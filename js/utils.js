@@ -1,5 +1,27 @@
 /* ============================================================
- *  utils.js — tiny helpers used across views
+ *  utils.js — tiny helpers used everywhere
+ * ============================================================
+ *
+ *  WHAT THIS FILE IS:
+ *  Small, generic helper functions that don't belong anywhere
+ *  specific. Things like:
+ *    - Showing a toast notification
+ *    - Opening / closing a modal
+ *    - Formatting a date or currency
+ *    - Building an SVG icon
+ *    - Getting the user's initials for an avatar
+ *
+ *  WHY ONE FILE FOR THESE?
+ *  These functions are used by basically every view. If we put
+ *  them in views, we'd duplicate them. If we put them in their
+ *  own files, we'd have a dozen tiny files to load. One Utils
+ *  file is the pragmatic middle ground.
+ *
+ *  RULE OF THUMB:
+ *  If a function fits in ~10 lines, is generic (not tied to
+ *  this app's data), and you'd want it in any web project —
+ *  it goes here. Anything bigger or domain-specific belongs
+ *  in its own module.
  * ============================================================ */
 
 const Utils = {
