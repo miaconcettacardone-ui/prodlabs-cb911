@@ -46,7 +46,7 @@ const Landing = (() => {
           </div>
         </nav>
 
-        <div class="land-hero land-hero-tight">
+        <div class="land-hero ${firstRun ? 'land-hero-tight' : 'land-hero-wide'}">
           ${firstRun ? renderBootstrapHero() : renderLoginHero()}
         </div>
 
@@ -99,26 +99,43 @@ const Landing = (() => {
   }
 
   // ---- Login card ------------------------------------------
+  // Phase 6 sketch: two-column layout. Welcome + sign-in card on left,
+  // value-prop bullets on right. Hero text moves into the card so the
+  // right column has standalone bullets visible above the fold.
   function renderLoginHero() {
     return `
-      <span class="land-eyebrow">Sign in</span>
-      <h1>Welcome back to <em>ProdLabs</em>.</h1>
-      <p>Internal productivity platform for Chargebacks911 teams.</p>
-
-      <div class="land-form-card">
-        <h3>Sign in</h3>
-        <div id="lg-err" class="err-msg"></div>
-        <div class="form-row">
-          <label class="label">Username</label>
-          <input id="lg-username" type="text" placeholder="username" autocomplete="username" />
+      <div class="land-split">
+        <div class="land-split-left">
+          <span class="land-eyebrow">Sign in</span>
+          <h1>Welcome back to <em>ProdLabs</em>.</h1>
+          <div class="land-form-card">
+            <h3>Sign in</h3>
+            <div id="lg-err" class="err-msg"></div>
+            <div class="form-row">
+              <label class="label">Username</label>
+              <input id="lg-username" type="text" placeholder="username" autocomplete="username" />
+            </div>
+            <div class="form-row">
+              <label class="label">Password</label>
+              <input id="lg-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+            <button class="btn btn-primary btn-block" id="lg-submit">
+              ${Utils.icon('arrow', 14)} Sign in
+            </button>
+          </div>
         </div>
-        <div class="form-row">
-          <label class="label">Password</label>
-          <input id="lg-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        <div class="land-split-right">
+          <ul class="land-bullets">
+            <li>${Utils.icon('users', 16)} <span>Manage your team</span></li>
+            <li>${Utils.icon('chart', 16)} <span>View your stats</span></li>
+            <li>${Utils.icon('shieldStar', 16)} <span>Engage in team competition</span></li>
+            <li>${Utils.icon('home', 16)} <span>Review company productivity</span></li>
+          </ul>
+          <p class="land-bullets-note">
+            Credentials are issued by your administrator.
+            Need access? Contact your team manager or platform owner.
+          </p>
         </div>
-        <button class="btn btn-primary btn-block" id="lg-submit">
-          ${Utils.icon('arrow', 14)} Sign in
-        </button>
       </div>
     `;
   }

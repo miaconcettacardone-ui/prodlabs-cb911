@@ -1,14 +1,19 @@
 /* ============================================================
  *  views/super.js — Super Admin dashboard
  * ============================================================
- *  Tabs: Overview · Approvals · Teams · Admins · Settings
- *  Phase 1: this view is fully built out as the polish template.
- *  Phase 2: bring manager/member views to the same level.
+ *  Phase 6 tabs (per sketch):
+ *    Dashboard | Stats | Teams & Goals | Import | History | Users | Messages | Settings
+ *
+ *  Admin sees all 8 tabs. Dashboard, Import, History are stubbed
+ *  (real implementations come in Phase 6 part 2).
+ *  Stats, Teams & Goals, Users, Messages, Settings reuse existing
+ *  Phase 5 renderers under their new tab keys.
  * ============================================================ */
 
 const SuperView = (() => {
 
-  let tab = 'stats';
+  // Default tab — Dashboard is the new entry point per sketch.
+  let tab = 'dashboard';
 
   function render(session) {
     const main = document.getElementById('app-main');
@@ -16,21 +21,27 @@ const SuperView = (() => {
     const inboxUnread = Inbox.unreadCountForUser(session);
 
     tabsEl.innerHTML = `
-      ${tabBtn('stats',     'Stats',         'home')}
-      ${tabBtn('teams',     'Teams & Goals', 'users')}
-      ${tabBtn('users',     'Users',         'shieldStar')}
-      ${tabBtn('inbox',     'Inbox',         'bell', inboxUnread)}
+      ${tabBtn('dashboard', 'Dashboard',     'dashboard')}
+      ${tabBtn('stats',     'Stats',         'chart')}
+      ${tabBtn('teams',     'Teams & Goals', 'flag')}
+      ${tabBtn('import',    'Import',        'upload')}
+      ${tabBtn('history',   'History',       'history')}
+      ${tabBtn('users',     'Users',         'users')}
+      ${tabBtn('messages',  'Messages',      'message', inboxUnread)}
       ${tabBtn('settings',  'Settings',      'settings')}
     `;
     tabsEl.querySelectorAll('.tab').forEach(t => {
       t.onclick = () => { tab = t.dataset.tab; render(session); };
     });
 
-    if      (tab === 'stats')    renderOverview(main, session);
-    else if (tab === 'teams')    renderTeams(main, session);
-    else if (tab === 'users')    renderAdmins(main, session);
-    else if (tab === 'inbox')    InboxView.render(main, session, () => render(session));
-    else if (tab === 'settings') renderSettings(main, session);
+    if      (tab === 'dashboard') renderDashboardStub(main, session);
+    else if (tab === 'stats')     renderOverview(main, session);
+    else if (tab === 'teams')     renderTeams(main, session);
+    else if (tab === 'import')    renderImportStub(main, session);
+    else if (tab === 'history')   renderHistoryStub(main, session);
+    else if (tab === 'users')     renderAdmins(main, session);
+    else if (tab === 'messages')  InboxView.render(main, session, () => render(session));
+    else if (tab === 'settings')  renderSettings(main, session);
   }
 
   function tabBtn(key, label, icon, count) {
@@ -38,6 +49,61 @@ const SuperView = (() => {
       ${Utils.icon(icon, 14)} ${label}
       ${count ? `<span class="tab-badge">${count}</span>` : ''}
     </button>`;
+  }
+
+  // ===== PHASE 6 STUBS =======================================
+  // These tabs exist in the IA but their full implementations
+  // ship in Phase 6 part 2. The stubs explain WHY they're empty
+  // so Mia's dev knows the IA placement is intentional.
+
+  function renderDashboardStub(main, session) {
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Dashboard</h2>
+          <div class="ph-sub">Company-wide productivity overview</div>
+        </div>
+      </div>
+      <div class="empty-stub">
+        ${Utils.icon('dashboard', 48)}
+        <h3>Dashboard coming in Phase 6</h3>
+        <p>This will be the company-wide productivity overview — top metrics, leaderboards across teams, and filterable views by department / team / user. Modeled on Intelihub's prod dashboard.</p>
+        <p class="empty-stub-hint">For now, the <strong>Stats</strong> tab shows the existing overview metrics.</p>
+      </div>
+    `;
+  }
+
+  function renderImportStub(main, session) {
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Import</h2>
+          <div class="ph-sub">Bulk upload of records, users, or team data</div>
+        </div>
+      </div>
+      <div class="empty-stub">
+        ${Utils.icon('upload', 48)}
+        <h3>Import area coming in Phase 6</h3>
+        <p>Bulk import will live here — paste-CSV records, user roster uploads, and team configuration imports. Like Intelihub's pellbs import area.</p>
+        <p class="empty-stub-hint">CSV record import is currently available inside Manager → Activity.</p>
+      </div>
+    `;
+  }
+
+  function renderHistoryStub(main, session) {
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>History</h2>
+          <div class="ph-sub">Reports and historical activity</div>
+        </div>
+      </div>
+      <div class="empty-stub">
+        ${Utils.icon('history', 48)}
+        <h3>History &amp; Reports coming in Phase 6</h3>
+        <p>Monthly, bi-monthly, and yearly PDF reports will generate here. Admin sees full company; managers see their team(s); users see their own report history.</p>
+      </div>
+    `;
   }
 
   // ===== OVERVIEW =====

@@ -28,7 +28,7 @@ const MemberView = (() => {
   // Default tab on first render. The router resets internal
   // state every time render() is called from outside, but
   // tab is module-scoped so it survives within-view re-renders.
-  let tab = 'overview';
+  let tab = 'dashboard';
   let historySort = { col: 'date', dir: 'desc' };
   let historyFilter = { search: '', workUnit: '', dateFrom: '', dateTo: '' };
 
@@ -39,16 +39,18 @@ const MemberView = (() => {
     const team = session.team;
     const inboxUnread = Inbox.unreadCountForUser(session);
 
-    // Note: 'log' and 'history' are NOT in the tab bar — they're
-    // reachable only via data-go links inside other panels. This
-    // keeps the bar clean while preserving the existing UX.
+    // Phase 6 IA per Mia's sketch:
+    //   Dashboard | Goals | Import | History | Messages | Settings
+    // Members deliberately do NOT see Stats or Users (admin/manager-only
+    // per sketch legend). "Goals" is the user-facing label for what
+    // managers see as "Teams & Goals".
     tabsEl.innerHTML = `
-      ${tabBtn('overview', 'Overview', 'home')}
-      ${tabBtn('stats',    'Stats',    'chart')}
-      ${tabBtn('users',    'Users',    'users')}
-      ${tabBtn('goals',    'Goals',    'check')}
-      ${tabBtn('inbox',    'Inbox',    'bell', inboxUnread)}
-      ${tabBtn('settings', 'Settings', 'settings')}
+      ${tabBtn('dashboard', 'Dashboard', 'dashboard')}
+      ${tabBtn('goals',     'Goals',     'flag')}
+      ${tabBtn('import',    'Import',    'upload')}
+      ${tabBtn('history',   'History',   'history')}
+      ${tabBtn('messages',  'Messages',  'message', inboxUnread)}
+      ${tabBtn('settings',  'Settings',  'settings')}
     `;
     tabsEl.querySelectorAll('.tab').forEach(t => {
       t.onclick = () => { tab = t.dataset.tab; render(session); };
@@ -68,15 +70,18 @@ const MemberView = (() => {
       return;
     }
 
-    if      (tab === 'overview') renderOverview(main, session);
-    else if (tab === 'stats')    renderStats(main, session);
-    else if (tab === 'users')    renderUsers(main, session);
-    else if (tab === 'goals')    renderGoals(main, session);
-    else if (tab === 'inbox')    InboxView.render(main, session, () => render(session));
-    else if (tab === 'settings') renderSettings(main, session);
-    // Reachable via data-go but no tab button:
-    else if (tab === 'log')      renderLog(main, session);
-    else if (tab === 'history')  renderHistory(main, session);
+    if      (tab === 'dashboard') renderOverview(main, session);
+    else if (tab === 'goals')     renderGoals(main, session);
+    else if (tab === 'import')    renderLog(main, session);
+    else if (tab === 'history')   renderHistory(main, session);
+    else if (tab === 'messages')  InboxView.render(main, session, () => render(session));
+    else if (tab === 'settings')  renderSettings(main, session);
+    // legacy keys still reachable from data-go links inside panels
+    else if (tab === 'overview')  renderOverview(main, session);
+    else if (tab === 'log')       renderLog(main, session);
+    else if (tab === 'stats')     renderOverview(main, session); // re-route to dashboard
+    else if (tab === 'users')     renderOverview(main, session); // re-route to dashboard
+    else if (tab === 'inbox')     InboxView.render(main, session, () => render(session));
   }
 
   function tabBtn(key, label, icon, count) {

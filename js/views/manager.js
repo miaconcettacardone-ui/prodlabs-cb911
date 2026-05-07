@@ -20,7 +20,7 @@
 
 const ManagerView = (() => {
 
-  let tab = 'overview';
+  let tab = 'dashboard';
   let drillMember = null;
   let activitySort = { col: 'date', dir: 'desc' };
   let activityFilter = { search: '', memberEmail: '', workUnit: '', dateFrom: '', dateTo: '' };
@@ -33,13 +33,24 @@ const ManagerView = (() => {
     const team = session.team;
     const inboxUnread = Inbox.unreadCountForUser(session);
 
+    // Phase 6 IA per Mia's sketch:
+    //   Dashboard | Stats | Teams & Goals | Import | History | Users | Messages | Settings
+    // - Dashboard, Import, History are stubs (real impl Phase 6 part 2)
+    // - Stats reuses renderOverview (existing manager metrics)
+    // - Teams & Goals reuses renderTeam (team config + goals overview)
+    // - Import wraps renderLog (single-record) + the existing bulk-CSV modal
+    // - Users reuses renderTeam's roster section (team members)
+    // - Messages = inbox
+    // - Settings = renderSettings
     tabsEl.innerHTML = `
-      ${tabBtn('overview',  'Overview',  'home')}
-      ${tabBtn('inbox',     'Inbox',     'bell', inboxUnread)}
-      ${tabBtn('team',      'Team',      'users')}
-      ${tabBtn('activity',  'Activity',  'chart')}
-      ${tabBtn('log',       'Log Work',  'plus')}
-      ${tabBtn('settings',  'Settings',  'settings')}
+      ${tabBtn('dashboard', 'Dashboard',     'dashboard')}
+      ${tabBtn('stats',     'Stats',         'chart')}
+      ${tabBtn('teams',     'Teams & Goals', 'flag')}
+      ${tabBtn('import',    'Import',        'upload')}
+      ${tabBtn('history',   'History',       'history')}
+      ${tabBtn('users',     'Users',         'users')}
+      ${tabBtn('messages',  'Messages',      'message', inboxUnread)}
+      ${tabBtn('settings',  'Settings',      'settings')}
     `;
     tabsEl.querySelectorAll('.tab').forEach(t => {
       t.onclick = () => { tab = t.dataset.tab; drillMember = null; render(session); };
@@ -59,11 +70,13 @@ const ManagerView = (() => {
       return;
     }
 
-    if      (tab === 'overview')  renderOverview(main, session);
-    else if (tab === 'inbox')     InboxView.render(main, session, () => render(session));
-    else if (tab === 'team')      renderTeam(main, session);
-    else if (tab === 'activity')  renderActivity(main, session);
-    else if (tab === 'log')       renderLog(main, session);
+    if      (tab === 'dashboard') renderDashboardStub(main, session);
+    else if (tab === 'stats')     renderOverview(main, session);
+    else if (tab === 'teams')     renderTeam(main, session);
+    else if (tab === 'import')    renderImport(main, session);
+    else if (tab === 'history')   renderActivity(main, session);
+    else if (tab === 'users')     renderTeam(main, session);
+    else if (tab === 'messages')  InboxView.render(main, session, () => render(session));
     else if (tab === 'settings')  renderSettings(main, session);
   }
 
@@ -72,6 +85,38 @@ const ManagerView = (() => {
       ${Utils.icon(icon, 14)} ${label}
       ${count ? `<span class="tab-badge">${count}</span>` : ''}
     </button>`;
+  }
+
+  // ===== PHASE 6 STUBS =======================================
+  function renderDashboardStub(main, session) {
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Dashboard</h2>
+          <div class="ph-sub">Your team at a glance</div>
+        </div>
+      </div>
+      <div class="empty-stub">
+        ${Utils.icon('dashboard', 48)}
+        <h3>Dashboard coming in Phase 6</h3>
+        <p>This will roll up your team's productivity into a single Intelihub-style overview — top metrics, leaderboards, goal progress, with optional filtering by team member.</p>
+        <p class="empty-stub-hint">For now, the <strong>Stats</strong> tab shows the existing team overview.</p>
+      </div>
+    `;
+  }
+
+  // Phase 6: Import tab is now the home of "log work + bulk CSV". The
+  // existing Log Work flow renders inline; the existing bulk-CSV modal
+  // is reachable from a button at the top.
+  function renderImport(main, session) {
+    // delegate to existing renderLog — it already includes the bulk
+    // import button via CONFIG.FEATURES.csvImport. Just retitle the
+    // page header so users see "Import" instead of "Log Work".
+    renderLog(main, session);
+    const ph = main.querySelector('.page-header h2');
+    if (ph) ph.textContent = 'Import';
+    const sub = main.querySelector('.page-header .ph-sub');
+    if (sub) sub.textContent = 'Log a record or bulk-import from CSV';
   }
 
   // ============================================================

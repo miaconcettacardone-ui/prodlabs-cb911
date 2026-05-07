@@ -1,25 +1,31 @@
 /* ============================================================
- *  smoke-p5.js — Phase 5 smoke test
+ *  smoke-p6.js — Phase 6 (part 1) smoke test
  * ============================================================
  *
- *  Run with:  node smoke-p5.js
+ *  Run with:  node smoke-p6.js
  *
  *  Loads every JS file in the order index.html does, then exercises
- *  the Phase 5 surfaces that are implemented:
+ *  Phase 5 + Phase 6 (part 1) surfaces:
  *
  *    1. All JS files load without syntax errors
  *    2. State.isFirstRun() — true on fresh, false after bootstrap
  *    3. State.addDepartment idempotent + getDepartments returns merged list
  *    4. Auth.tryLogin('devadmin', ...) succeeds after bootstrapDev
- *    5. Landing renders without error in both first-run and login modes
- *    6. App shell renders for all three role types
+ *    5. Landing renders — login mode uses two-column split layout with
+ *       value-prop bullets; first-run mode keeps single-column form
+ *    6. Phase 6 IA: super=8 tabs, manager=8 tabs, member=6 tabs;
+ *       member explicitly excludes 'stats' and 'users' per sketch
  *    7. No references to Stepper, Wizard, AuthView, rolepick, or
  *       signup-* in any loaded JS
- *    8. Tab counts: Super=5, Manager=6, Member=6 (Phase 4 unchanged)
+ *    8. CONFIG.FEATURES Phase 5 flags
+ *    9. LIBRARY reseeded with CB911 vocab
  *
- *  NOT covered (because items 10/11 are not yet implemented):
+ *  NOT covered (Phase 6 part 2):
+ *    - Real Dashboard tab implementation (currently stubbed)
+ *    - Real History/PDF reports (currently stubbed)
+ *    - Real top-level Import refactor (currently a relabel of Log Work)
+ *    - Wizard-walkthrough inside Settings
  *    - Add Manager / Add Member / Add Super Admin modals
- *    - Manager empty-state "Set up your team" CTA
  *
  *  When those land, expand this test accordingly.
  * ============================================================ */
@@ -30,7 +36,7 @@ const { JSDOM } = require('jsdom');
 
 // When this script lives inside the project root (post-deploy), __dirname
 // is the project root. When it lives outside (during dev with the project
-// in ./p5/), it's one level up. Detect which by looking for index.html.
+// in ./p6/), it's one level up. Detect which by looking for index.html.
 const ROOT = fs.existsSync(path.join(__dirname, 'index.html'))
   ? __dirname
   : path.join(__dirname, 'p5');
@@ -116,6 +122,10 @@ try {
   Landing.render();
   const fUser = window.document.querySelector('#lg-username');
   expect('login mode shows username field', !!fUser);
+  // Phase 6: two-column login layout
+  expect('login mode uses split layout', !!window.document.querySelector('.land-split'));
+  expect('login mode shows value-prop bullets',
+    window.document.querySelectorAll('.land-bullets li').length >= 4);
 } catch (e) { bad('login render', e.message); }
 
 // Reset and try first-run mode
@@ -125,21 +135,69 @@ try {
   const fUser = window.document.querySelector('#bs-username');
   const fMail = window.document.querySelector('#bs-email');
   expect('first-run mode shows username + email fields', !!fUser && !!fMail);
+  // First run keeps the tight (single-column) layout
+  expect('first-run mode does NOT use split layout',
+    !window.document.querySelector('.land-split'));
 } catch (e) { bad('first-run render', e.message); }
 
-// ----- 6. App shell renders for each role -----
-console.log('\n[6] App shell renders for each role');
+// ----- 6. App shell + Phase 6 tab counts per role -----
+console.log('\n[6] App shell renders + Phase 6 tab structure');
 State.reset();
 State.bootstrapDev();
+
+// SUPER: 8 tabs per sketch
 State.setSession('super', 'devadmin@prodlabs.dev');
 try {
   Router.go('app');
   expect('super: app topbar present', !!window.document.querySelector('#app .topbar'));
   expect('super: tabs container present', !!window.document.querySelector('#app .tabs'));
-  // Super admin tabs: Stats | Teams & Goals | Users | Inbox | Settings = 5
-  const superTabs = window.document.querySelectorAll('#app .tabs .tab').length;
-  expect(`super tab count = 5 (got ${superTabs})`, superTabs === 5);
+  const superTabs = [...window.document.querySelectorAll('#app .tabs .tab')]
+    .map(t => t.dataset.tab);
+  expect(`super tab count = 8 (got ${superTabs.length})`, superTabs.length === 8);
+  ['dashboard','stats','teams','import','history','users','messages','settings']
+    .forEach(key => expect(`super has '${key}' tab`, superTabs.includes(key)));
+  // Verify Phase 6 stub renders (Dashboard is the default)
+  expect('super: Dashboard stub renders',
+    /Dashboard coming in Phase 6/.test(window.document.querySelector('#app-main').textContent));
 } catch (e) { bad('super render', e.message); }
+
+// MANAGER: 8 tabs (same IA)
+// Need to seed a manager + team for renderManager to work
+const team = State.addTeam({
+  name: 'Test Team', department: 'Alerts',
+  managerEmail: 'mgr@test.com', workUnits: [], workUnitLabels: {},
+  fields: [], roles: [], goals: {},
+});
+State.addManager({
+  email: 'mgr@test.com', username: 'testmgr', displayName: 'Test Manager',
+  password: 'password!', teamId: team.id, approvedBy: '__test__',
+});
+State.setSession('manager', 'mgr@test.com');
+try {
+  Router.go('app');
+  const mgrTabs = [...window.document.querySelectorAll('#app .tabs .tab')]
+    .map(t => t.dataset.tab);
+  expect(`manager tab count = 8 (got ${mgrTabs.length})`, mgrTabs.length === 8);
+  ['dashboard','stats','teams','import','history','users','messages','settings']
+    .forEach(key => expect(`manager has '${key}' tab`, mgrTabs.includes(key)));
+} catch (e) { bad('manager render', e.message); }
+
+// MEMBER: 6 tabs per sketch (no Stats, no Users)
+State.addMember({
+  email: 'mbr@test.com', username: 'testmbr', displayName: 'Test Member',
+  password: 'password!', teamId: team.id, role: 'Analyst', approvedBy: '__test__',
+});
+State.setSession('member', 'mbr@test.com');
+try {
+  Router.go('app');
+  const mbrTabs = [...window.document.querySelectorAll('#app .tabs .tab')]
+    .map(t => t.dataset.tab);
+  expect(`member tab count = 6 (got ${mbrTabs.length})`, mbrTabs.length === 6);
+  ['dashboard','goals','import','history','messages','settings']
+    .forEach(key => expect(`member has '${key}' tab`, mbrTabs.includes(key)));
+  expect("member does NOT have 'stats' tab", !mbrTabs.includes('stats'));
+  expect("member does NOT have 'users' tab", !mbrTabs.includes('users'));
+} catch (e) { bad('member render', e.message); }
 
 // ----- 7. No references to deleted modules -----
 console.log('\n[7] No deleted-module references in loaded JS');
@@ -170,6 +228,29 @@ expect('roles.length === 6', LIBRARY.roles.length === 6);
 const outcomeOpts = LIBRARY.fields.find(f => f.id === 'outcome').options;
 expect('outcome options includes Settled', outcomeOpts.includes('Settled'));
 expect('outcome options includes Refunded', outcomeOpts.includes('Refunded'));
+
+// ----- 10. Click through every tab on every role -----
+console.log('\n[10] Tab content renders without throwing');
+function clickThrough(role, sessionEmail, expectedTabs) {
+  State.setSession(role, sessionEmail);
+  Router.go('app');
+  for (const key of expectedTabs) {
+    try {
+      const btn = window.document.querySelector(`#app .tabs .tab[data-tab="${key}"]`);
+      if (!btn) { bad(`${role}/${key}`, 'tab button not found'); continue; }
+      btn.click();
+      const main = window.document.querySelector('#app-main');
+      const ok_ = main && main.children.length > 0;
+      ok_ ? ok(`${role}/${key} renders`) : bad(`${role}/${key}`, 'empty main');
+    } catch (e) { bad(`${role}/${key}`, e.message); }
+  }
+}
+clickThrough('super', 'devadmin@prodlabs.dev',
+  ['dashboard','stats','teams','import','history','users','messages','settings']);
+clickThrough('manager', 'mgr@test.com',
+  ['dashboard','stats','teams','import','history','users','messages','settings']);
+clickThrough('member', 'mbr@test.com',
+  ['dashboard','goals','import','history','messages','settings']);
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);
