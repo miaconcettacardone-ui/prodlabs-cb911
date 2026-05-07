@@ -720,3 +720,355 @@ th.sortable:hover { color: var(--cb-red); }
 }
 
 
+
+/* ============================================================
+ * === Phase 4 additions ======================================
+ * ============================================================
+ *
+ * All new CSS for Phase 4 lives in this block so we can
+ * code-review additions easily and rip them out cleanly if
+ * needed. Uses existing CSS variables only — no new tokens.
+ * ============================================================ */
+
+/* ---- Stepper (global signup-journey indicator) ----------- */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 880px;
+  margin: 0 auto 1.5rem;
+  padding: 1rem 0.5rem;
+  flex-wrap: wrap;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 60px;
+}
+.step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bor);
+  color: var(--mut);
+  transition: all 0.2s ease;
+}
+.step-label {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.step-line {
+  flex: 1;
+  height: 2px;
+  background: var(--bor);
+  min-width: 20px;
+  max-width: 60px;
+  margin: 0 4px;
+  margin-bottom: 18px; /* offset so line aligns with dot center */
+  transition: background 0.2s ease;
+}
+.step-line.done {
+  background: var(--gr);
+}
+.step.on .step-dot {
+  background: var(--cb-red);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--cb-red-lt);
+}
+.step.on .step-label {
+  color: var(--cb-red);
+  font-weight: 600;
+}
+.step.done .step-dot {
+  background: var(--gr);
+  color: #fff;
+}
+.step.done .step-label {
+  color: var(--gr);
+}
+
+/* ---- Landing CTAs (Phase 4 redesign) -------------------- */
+.land-cta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 760px;
+  margin: 0 auto 2rem;
+  padding: 0 1rem;
+}
+.land-cta-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem;
+  background: #fff;
+  border: 2px solid var(--bor);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+.land-cta-card:hover {
+  border-color: var(--cb-red);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.lcc-icon {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--r-md);
+  background: var(--cb-red-lt);
+  color: var(--cb-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lcc-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.lcc-text p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--mut);
+}
+.land-cta-card.lcc-primary {
+  background: linear-gradient(135deg, var(--cb-red) 0%, var(--cb-red-dk) 100%);
+  border-color: var(--cb-red-dk);
+  color: #fff;
+}
+.land-cta-card.lcc-primary .lcc-icon {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+.land-cta-card.lcc-primary .lcc-text p {
+  color: rgba(255,255,255,0.9);
+}
+.land-cta-card.lcc-primary:hover {
+  border-color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(230,57,70,0.3);
+}
+
+/* ---- Auth wide / Role-pick screen ------------------------ */
+.auth-card-wide {
+  max-width: 720px;
+}
+.role-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.role-pick-card {
+  position: relative;
+  padding: 1.5rem 1.25rem;
+  background: #fff;
+  border: 2px solid var(--bor);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+.role-pick-card:hover {
+  border-color: var(--cb-red);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.rpc-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: var(--r-md);
+  background: var(--cb-red-lt);
+  color: var(--cb-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rpc-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.rpc-body {
+  font-size: 12px;
+  color: var(--mut);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.rpc-arrow {
+  color: var(--cb-red);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Inbox (universal across roles) ---------------------- */
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+}
+.inbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bor);
+  transition: background 0.15s ease;
+}
+.inbox-item:last-child { border-bottom: none; }
+.inbox-item.is-unread {
+  background: var(--cb-red-lt);
+}
+.inbox-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 8px;
+}
+.inbox-dot-action { background: var(--cb-red); }
+.inbox-dot-note   { background: var(--bor-strong); }
+.inbox-main {
+  flex: 1;
+  min-width: 0;
+}
+.inbox-row1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.inbox-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--cb-dark);
+}
+.inbox-sub {
+  font-size: 13px;
+  color: var(--mut);
+  line-height: 1.4;
+}
+.inbox-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* ---- Auth success card ---------------------------------- */
+.auth-success {
+  text-align: center;
+}
+.auth-check-circle {
+  width: 80px;
+  height: 80px;
+  background: var(--grd, linear-gradient(135deg, #34d399 0%, #10b981 100%));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  color: #065f46;
+}
+
+/* ---- Topbar tweaks (Phase 4) ---------------------------- */
+.tbu-name {
+  margin-left: 8px;
+}
+
+/* ---- Member view: roster + leaderboard + goals ---------- */
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.member-card-readonly {
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid var(--bor);
+  border-radius: var(--r-md);
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.member-card-readonly.is-me {
+  border-color: var(--cb-red);
+  border-width: 2px;
+  background: var(--cb-red-lt);
+}
+.member-card-readonly .avatar {
+  margin: 0 auto 0.75rem;
+}
+.mcr-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.mcr-role {
+  font-size: 12px;
+  color: var(--mut);
+}
+
+/* Highlight the current user on the leaderboard */
+tr.is-me {
+  background: var(--cb-red-lt);
+  font-weight: 600;
+}
+tr.is-me td:first-child {
+  border-left: 3px solid var(--cb-red);
+}
+
+/* ---- Goals: last-7-day mini-bars ----------------------- */
+.mini-week {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+.mini-day {
+  flex: 1;
+  aspect-ratio: 1;
+  min-height: 36px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  transition: transform 0.15s ease;
+  cursor: default;
+}
+.mini-day:hover { transform: scale(1.05); }
+.mini-day.hit  { background: var(--gr); color: #fff; }
+.mini-day.miss { background: var(--bor); color: var(--mut); }
+.mini-day-label {
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+/* Avatar large variant for roster cards */
+.avatar.avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
+/* ============================================================
+ * === End Phase 4 additions ==================================
+ * ============================================================ */

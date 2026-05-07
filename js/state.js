@@ -71,6 +71,11 @@ const State = (() => {
       teams:       [],   // {id, name, department, managerEmail, workUnits[], workUnitLabels{}, fields[], roles[], goals{}}
       records:     [],   // {id, teamId, memberEmail, date, workUnit, fields{}, createdAt}
       pending:     [],   // {id, type, email, displayName, password, payload{}, requestedAt, status, decidedBy?, decidedAt?, decisionNote?}
+      // Notifications are read-only system messages sent to a specific user.
+      // Used to tell users when their access was approved/denied, etc.
+      // Lives alongside `pending` (action items) — together they make up the
+      // user's "Inbox" (see js/inbox.js for the merge logic).
+      notifications: [],   // {id, recipientEmail, kind, title, body, createdAt, readAt|null}
       session:     null, // {type, email}
       config: {
         superAdminApprovers: [], // emails of super admins who can approve new super admins
@@ -360,6 +365,80 @@ const State = (() => {
     return [];
   }
 
+  // ---- notifications ----------------------------------------
+  // Notifications are read-only messages directed at a specific
+  // user — e.g. "your access was approved". They sit in the same
+  // inbox as pending action items but require no decision; the
+  // recipient just reads (and optionally marks read).
+  function addNotification({ recipientEmail, kind, title, body }) {
+    const s = load();
+    const n = {
+      id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      recipientEmail: (recipientEmail || '').toLowerCase(),
+      kind: kind || 'info',
+      title: title || '',
+      body: body || '',
+      createdAt: Date.now(),
+      readAt: null,
+    };
+    s.notifications.push(n);
+    save();
+    return n;
+  }
+
+  function notificationsForUser(email) {
+    const s = load();
+    const norm = (email || '').toLowerCase();
+    if (!norm) return [];
+    return s.notifications.filter(n => (n.recipientEmail || '').toLowerCase() === norm);
+  }
+
+  function markNotificationRead(id) {
+    const s = load();
+    const i = s.notifications.findIndex(n => n.id === id);
+    if (i >= 0 && !s.notifications[i].readAt) {
+      s.notifications[i].readAt = Date.now();
+      save();
+      return s.notifications[i];
+    }
+    return s.notifications[i] || null;
+  }
+
+  // ---- dev backdoor -----------------------------------------
+  // Pre-seed a known super admin so devs (and Mia) can bypass
+  // the full signup/approval flow when iterating on the prototype.
+  // IDEMPOTENT: safe to call any number of times; only does work
+  // if the devadmin account doesn't already exist.
+  //
+  // The Shift+D shortcut and ?dev=1 URL param both call this and
+  // then sign in with the returned creds.
+  function bootstrapDev() {
+    const s = load();
+    const email = 'devadmin@prodlabs.dev';
+    const password = 'd3ve1opment!';
+    const existing = s.superAdmins.find(u => u.email.toLowerCase() === email);
+    if (!existing) {
+      s.superAdmins.push({
+        email,
+        displayName: 'Dev Admin',
+        password,
+        approvedBy: '__bootstrap__',
+        createdAt: Date.now(),
+      });
+    }
+    // Mark platform as bootstrapped so first-run logic doesn't
+    // fire again later. Default the company name if blank.
+    s.config.bootstrapped = true;
+    if (!s.company.name) s.company.name = 'Chargebacks911';
+    // Make sure devadmin can approve future super admins.
+    const approvers = (s.config.superAdminApprovers || []).map(e => e.toLowerCase());
+    if (!approvers.includes(email)) {
+      s.config.superAdminApprovers = [...(s.config.superAdminApprovers || []), email];
+    }
+    save();
+    return { email, password };
+  }
+
   // public API
   return {
     get, load, save, reset,
@@ -370,6 +449,8 @@ const State = (() => {
     addTeam, addRecord, addRecords, updateRecord, deleteRecord,
     updateCompany, updateConfig, updateUser, deleteUser,
     addPending, updatePending, pendingForUser,
+    addNotification, notificationsForUser, markNotificationRead,
+    bootstrapDev,
   };
 
 })();

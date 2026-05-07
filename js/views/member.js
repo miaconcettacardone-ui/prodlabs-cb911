@@ -1,21 +1,34 @@
 /* ============================================================
- *  views/member.js — Team Member dashboard (Phase 3)
+ *  views/member.js — Team Member dashboard (Phase 4)
  * ============================================================
- *  Tabs: Dashboard · Log Work · History
+ *  Tabs: Overview · Stats · Users · Goals · Inbox · Settings
  *
- *  Members see their OWN data only. They can:
- *    - View today's goal progress
- *    - See their last 30-day trend (chart)
- *    - See their by-work-unit breakdown (chart)
- *    - Filter & search their history
- *    - Edit / delete their own records (gated by CONFIG.FEATURES.memberSelfDelete)
+ *  THIS IS A REWRITE for Phase 4:
+ *    - Old tabs were Dashboard / Log Work / History.
+ *    - New tabs make members feel more like first-class citizens
+ *      of the platform — they get a Stats view (with team
+ *      leaderboard!), a Users tab (read-only roster), a Goals
+ *      tab with last-7-day mini-bars, plus a universal Inbox
+ *      and Settings.
+ *    - Logging work + History are still REACHABLE (data-go="log",
+ *      data-go="history") — they just don't have their own tab
+ *      buttons anymore. Overview's "Log Work" button and "View
+ *      all" link still work.
+ *
+ *  WHY THIS RESHAPE?
+ *  Phase 1-3 treated members as data-entry users only. Phase 4
+ *  acknowledges members care about progress (Stats / Goals) and
+ *  team awareness (Users / Leaderboard). Inbox is universal.
  *
  *  TZ NOTE: see manager.js header.
  * ============================================================ */
 
 const MemberView = (() => {
 
-  let tab = 'dashboard';
+  // Default tab on first render. The router resets internal
+  // state every time render() is called from outside, but
+  // tab is module-scoped so it survives within-view re-renders.
+  let tab = 'overview';
   let historySort = { col: 'date', dir: 'desc' };
   let historyFilter = { search: '', workUnit: '', dateFrom: '', dateTo: '' };
 
@@ -24,11 +37,18 @@ const MemberView = (() => {
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
     const team = session.team;
+    const inboxUnread = Inbox.unreadCountForUser(session);
 
+    // Note: 'log' and 'history' are NOT in the tab bar — they're
+    // reachable only via data-go links inside other panels. This
+    // keeps the bar clean while preserving the existing UX.
     tabsEl.innerHTML = `
-      <button class="tab ${tab==='dashboard'?'on':''}" data-tab="dashboard">${Utils.icon('home',14)} My Dashboard</button>
-      <button class="tab ${tab==='log'?'on':''}" data-tab="log">${Utils.icon('plus',14)} Log Work</button>
-      <button class="tab ${tab==='history'?'on':''}" data-tab="history">${Utils.icon('chart',14)} My History</button>
+      ${tabBtn('overview', 'Overview', 'home')}
+      ${tabBtn('stats',    'Stats',    'chart')}
+      ${tabBtn('users',    'Users',    'users')}
+      ${tabBtn('goals',    'Goals',    'check')}
+      ${tabBtn('inbox',    'Inbox',    'bell', inboxUnread)}
+      ${tabBtn('settings', 'Settings', 'settings')}
     `;
     tabsEl.querySelectorAll('.tab').forEach(t => {
       t.onclick = () => { tab = t.dataset.tab; render(session); };
@@ -48,20 +68,32 @@ const MemberView = (() => {
       return;
     }
 
-    if      (tab === 'dashboard') renderDashboard(main, session);
-    else if (tab === 'log')       renderLog(main, session);
-    else if (tab === 'history')   renderHistory(main, session);
+    if      (tab === 'overview') renderOverview(main, session);
+    else if (tab === 'stats')    renderStats(main, session);
+    else if (tab === 'users')    renderUsers(main, session);
+    else if (tab === 'goals')    renderGoals(main, session);
+    else if (tab === 'inbox')    InboxView.render(main, session, () => render(session));
+    else if (tab === 'settings') renderSettings(main, session);
+    // Reachable via data-go but no tab button:
+    else if (tab === 'log')      renderLog(main, session);
+    else if (tab === 'history')  renderHistory(main, session);
+  }
+
+  function tabBtn(key, label, icon, count) {
+    return `<button class="tab ${tab===key?'on':''}" data-tab="${key}">
+      ${Utils.icon(icon, 14)} ${label}
+      ${count ? `<span class="tab-badge">${count}</span>` : ''}
+    </button>`;
   }
 
   // ============================================================
-  //  DASHBOARD
+  //  OVERVIEW (slimmed dashboard — greeting + goals + charts)
   // ============================================================
-  function renderDashboard(main, session) {
+  function renderOverview(main, session) {
     const team = session.team;
     const myEmail = session.user.email.toLowerCase();
     const myRecords = State.recordsOfTeam(team.id).filter(r => r.memberEmail.toLowerCase() === myEmail);
     const today = Utils.todayISO();
-    const periods = Analytics.periodCounts(myRecords, today);
     const todayRecs = myRecords.filter(r => r.date === today);
     const goalsActive = Analytics.activeGoals(team);
 
@@ -72,13 +104,6 @@ const MemberView = (() => {
           <div class="ph-sub">${escape(team.name)} · ${session.user.role ? escape(session.user.role) : 'Team Member'}</div>
         </div>
         <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
-      </div>
-
-      <div class="metric-grid">
-        ${metric('Today',      periods.today,                   'records logged today',  'r')}
-        ${metric('This Week',  periods.thisWeek,                'week-to-date',          'b')}
-        ${metric('This Month', periods.thisMonth,               'month-to-date',         'g')}
-        ${metric('All Time',   periods.allTime.toLocaleString(),'your total',            'a')}
       </div>
 
       ${goalsActive.length ? `
@@ -141,7 +166,230 @@ const MemberView = (() => {
   }
 
   // ============================================================
-  //  LOG WORK
+  //  STATS (period metrics + team leaderboard)
+  // ============================================================
+  function renderStats(main, session) {
+    const team = session.team;
+    const myEmail = session.user.email.toLowerCase();
+    const allRecords = State.recordsOfTeam(team.id);
+    const myRecords = allRecords.filter(r => r.memberEmail.toLowerCase() === myEmail);
+    const today = Utils.todayISO();
+    const periods = Analytics.periodCounts(myRecords, today);
+
+    // Build the leaderboard: every member of the team with their
+    // all-time record count. Sort descending. The current user is
+    // highlighted with .is-me so members can find themselves fast.
+    const teamMembers = State.membersOfTeam(team.id);
+    const leaderboard = teamMembers.map(m => {
+      const count = allRecords.filter(r => r.memberEmail.toLowerCase() === m.email.toLowerCase()).length;
+      return { member: m, count };
+    }).sort((a, b) => b.count - a.count);
+
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>My Stats</h2>
+          <div class="ph-sub">Your numbers, plus where you stack up on the team.</div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        ${metric('Today',      periods.today,                    'records logged today',  'r')}
+        ${metric('This Week',  periods.thisWeek,                 'week-to-date',          'b')}
+        ${metric('This Month', periods.thisMonth,                'month-to-date',         'g')}
+        ${metric('All Time',   periods.allTime.toLocaleString(), 'your total',            'a')}
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Team Leaderboard</span>
+          <span class="muted text-xs">${teamMembers.length} member${teamMembers.length!==1?'s':''} · all-time records</span>
+        </div>
+        ${leaderboard.length ? `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Member</th><th>Role</th><th>Records</th></tr></thead>
+              <tbody>
+                ${leaderboard.map((row, i) => {
+                  const isMe = row.member.email.toLowerCase() === myEmail;
+                  return `
+                    <tr class="${isMe ? 'is-me' : ''}">
+                      <td>${i + 1}</td>
+                      <td>${escape(row.member.displayName)}${isMe ? ' <span class="pill pill-r" style="margin-left:6px;font-size:10px">you</span>' : ''}</td>
+                      <td>${escape(row.member.role || '—')}</td>
+                      <td><strong>${row.count.toLocaleString()}</strong></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `<div class="card-body">${emptyState('No team members yet', 'The leaderboard will populate as your team grows.', 'users')}</div>`}
+      </div>
+    `;
+    bindLinks(main, session);
+  }
+
+  // ============================================================
+  //  USERS (read-only team roster)
+  // ============================================================
+  function renderUsers(main, session) {
+    const team = session.team;
+    const myEmail = session.user.email.toLowerCase();
+    const teamMembers = State.membersOfTeam(team.id);
+    const manager = State.get().managers.find(m => m.email === team.managerEmail);
+
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Team Roster</h2>
+          <div class="ph-sub">${escape(team.name)} · ${teamMembers.length} member${teamMembers.length!==1?'s':''}${manager ? ' + manager' : ''}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="roster-grid">
+            ${manager ? renderRosterCard(manager, 'Manager', false) : ''}
+            ${teamMembers.map(m => {
+              const isMe = m.email.toLowerCase() === myEmail;
+              return renderRosterCard(m, m.role || 'Team Member', isMe);
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRosterCard(person, roleLabel, isMe) {
+    return `
+      <div class="member-card-readonly ${isMe ? 'is-me' : ''}">
+        <div class="avatar avatar-lg">${Utils.initials(person.displayName)}</div>
+        <div class="mcr-name">${escape(person.displayName)}${isMe ? ' <span class="pill pill-r" style="margin-left:4px;font-size:10px">you</span>' : ''}</div>
+        <div class="mcr-role">${escape(roleLabel)}</div>
+      </div>
+    `;
+  }
+
+  // ============================================================
+  //  GOALS (last 7 days mini-bars per goal)
+  // ============================================================
+  function renderGoals(main, session) {
+    const team = session.team;
+    const myEmail = session.user.email.toLowerCase();
+    const myRecords = State.recordsOfTeam(team.id).filter(r => r.memberEmail.toLowerCase() === myEmail);
+    const goalsActive = Analytics.activeGoals(team);
+
+    // Build the last 7 ISO dates (oldest → newest).
+    const last7 = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      last7.push(d.toISOString().slice(0, 10));
+    }
+
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Goals</h2>
+          <div class="ph-sub">Your last 7 days against each active goal.</div>
+        </div>
+      </div>
+
+      ${goalsActive.length === 0 ? `
+        <div class="card">
+          <div class="card-body">
+            ${emptyState('No active goals', "Your manager hasn't set daily goals for your team yet.", 'check')}
+          </div>
+        </div>
+      ` : `
+        <div class="split-2">
+          ${goalsActive.map(([wuId, target]) => {
+            // For each of the last 7 days, count this user's records
+            // for this work unit — hit if >= target.
+            const days = last7.map(date => {
+              const cnt = myRecords.filter(r => r.date === date && r.workUnit === wuId).length;
+              return { date, cnt, hit: cnt >= target };
+            });
+            const hits = days.filter(d => d.hit).length;
+            return `
+              <div class="card">
+                <div class="card-head">
+                  <span class="card-title">${escape(LIBRARY.workUnitLabel(wuId, team.workUnitLabels))}</span>
+                  <span class="muted text-xs">${target}/day · ${hits}/7 hit</span>
+                </div>
+                <div class="card-body">
+                  <div class="mini-week">
+                    ${days.map(d => `
+                      <div class="mini-day ${d.hit ? 'hit' : 'miss'}" title="${d.date}: ${d.cnt}/${target}">
+                        <div class="mini-day-label">${d.date.slice(8)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    `;
+  }
+
+  // ============================================================
+  //  SETTINGS (display name + password)
+  // ============================================================
+  function renderSettings(main, session) {
+    main.innerHTML = `
+      <div class="page-header">
+        <div><h2>Settings</h2><div class="ph-sub">Update your profile info.</div></div>
+      </div>
+      <div class="card form-narrow">
+        <div class="card-body">
+          <div class="form-row">
+            <label class="label">Display name</label>
+            <input type="text" id="ms-name" value="${escape(session.user.displayName)}" placeholder="Your full name">
+          </div>
+          <div class="form-row">
+            <label class="label">Email</label>
+            <input type="email" value="${escape(session.user.email)}" disabled>
+            <div class="helper">Email is your unique ID — contact your manager to change it.</div>
+          </div>
+          <div class="form-row">
+            <label class="label">Password</label>
+            <input type="password" id="ms-pass" placeholder="leave blank to keep current">
+          </div>
+          <div class="flex gap-8 mt-2">
+            <button class="btn btn-primary" id="ms-save">${Utils.icon('check', 14)} Save Changes</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('ms-save').onclick = () => {
+      const name = (document.getElementById('ms-name').value || '').trim();
+      const pass = document.getElementById('ms-pass').value || '';
+      if (!name) { Utils.toast('Display name required', 'bad'); return; }
+      // Build a patch with ONLY the fields that actually changed.
+      // Empty-string password means "keep current" — don't blow it
+      // away just because the input was blank.
+      const patch = {};
+      if (name !== session.user.displayName) patch.displayName = name;
+      if (pass) patch.password = pass;
+      if (Object.keys(patch).length === 0) {
+        Utils.toast('Nothing to save', 'warn');
+        return;
+      }
+      State.updateUser(session.user.email, 'member', patch);
+      Utils.toast('Saved', 'good');
+      // Re-render so the new display name shows in the topbar.
+      // The topbar lives in app.js — we trigger a full app-shell
+      // refresh via the global event bus.
+      document.dispatchEvent(new CustomEvent('app:refresh'));
+    };
+  }
+
+  // ============================================================
+  //  LOG WORK (no tab; reachable via data-go="log")
   // ============================================================
   function renderLog(main, session) {
     const team = session.team;
@@ -185,14 +433,14 @@ const MemberView = (() => {
       });
       State.addRecord({ teamId: team.id, memberEmail: session.user.email, date, workUnit: wu, fields });
       Utils.toast('Record logged!','good');
-      tab = 'dashboard';
+      tab = 'overview';
       render(session);
     };
-    document.getElementById('lw-cancel').onclick = () => { tab='dashboard'; render(session); };
+    document.getElementById('lw-cancel').onclick = () => { tab='overview'; render(session); };
   }
 
   // ============================================================
-  //  HISTORY — filterable, sortable
+  //  HISTORY (no tab; reachable via data-go="history")
   // ============================================================
   function renderHistory(main, session) {
     const team = session.team;
@@ -349,7 +597,7 @@ const MemberView = (() => {
   }
 
   // ============================================================
-  //  SHARED RENDERERS
+  //  SHARED RENDERERS (lifted verbatim from Phase 3 member.js)
   // ============================================================
   function renderRecordTable(team, records, opts) {
     opts = opts || {};

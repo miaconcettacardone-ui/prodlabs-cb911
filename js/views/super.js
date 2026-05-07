@@ -8,28 +8,28 @@
 
 const SuperView = (() => {
 
-  let tab = 'overview';
+  let tab = 'stats';
 
   function render(session) {
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
-    const pendingCount = State.pendingForUser(session).length;
+    const inboxUnread = Inbox.unreadCountForUser(session);
 
     tabsEl.innerHTML = `
-      ${tabBtn('overview', 'Overview', 'home')}
-      ${tabBtn('approvals','Approvals','bell', pendingCount)}
-      ${tabBtn('teams',   'Teams',    'users')}
-      ${tabBtn('admins',  'Admins',   'shieldStar')}
-      ${tabBtn('settings','Settings', 'settings')}
+      ${tabBtn('stats',     'Stats',         'home')}
+      ${tabBtn('teams',     'Teams & Goals', 'users')}
+      ${tabBtn('users',     'Users',         'shieldStar')}
+      ${tabBtn('inbox',     'Inbox',         'bell', inboxUnread)}
+      ${tabBtn('settings',  'Settings',      'settings')}
     `;
     tabsEl.querySelectorAll('.tab').forEach(t => {
       t.onclick = () => { tab = t.dataset.tab; render(session); };
     });
 
-    if (tab === 'overview')   renderOverview(main, session);
-    else if (tab === 'approvals') renderApprovals(main, session);
-    else if (tab === 'teams') renderTeams(main, session);
-    else if (tab === 'admins') renderAdmins(main, session);
+    if      (tab === 'stats')    renderOverview(main, session);
+    else if (tab === 'teams')    renderTeams(main, session);
+    else if (tab === 'users')    renderAdmins(main, session);
+    else if (tab === 'inbox')    InboxView.render(main, session, () => render(session));
     else if (tab === 'settings') renderSettings(main, session);
   }
 
@@ -57,7 +57,7 @@ const SuperView = (() => {
           <div class="ph-sub">Company-wide view · ${s.company.name || 'Chargebacks911'}</div>
         </div>
         <div class="flex gap-8">
-          ${pendingCount ? `<button class="btn btn-primary" data-go="approvals">${Utils.icon('bell',14)} ${pendingCount} pending</button>` : ''}
+          ${pendingCount ? `<button class="btn btn-primary" data-go="inbox">${Utils.icon('bell',14)} ${pendingCount} pending</button>` : ''}
         </div>
       </div>
 
@@ -95,7 +95,7 @@ const SuperView = (() => {
                 </tbody>
               </table>
             </div>
-          ` : emptyState('No teams yet', 'Managers create teams via the wizard. Approve their requests in the Approvals tab.')}
+          ` : emptyState('No teams yet', 'Managers create teams via the wizard. Approve their requests in the Inbox tab.')}
         </div>
 
         <div class="card">
@@ -237,16 +237,48 @@ const SuperView = (() => {
     });
   }
 
-  // ===== TEAMS =====
+  // ===== TEAMS & GOALS =====
   function renderTeams(main, session) {
     const s = State.get();
+    // Goals-by-team summary: one row per team showing how many
+    // goals are configured. Helps super admins see at a glance
+    // which teams have set up tracking.
+    const goalsSummary = s.teams.map(t => {
+      const goalCount = t.goals ? Object.values(t.goals).filter(v => v && v > 0).length : 0;
+      return { team: t, goalCount };
+    });
+
     main.innerHTML = `
       <div class="page-header">
         <div>
-          <h2>Teams</h2>
+          <h2>Teams &amp; Goals</h2>
           <div class="ph-sub">All teams across ${s.company.name}. Click a team to see details.</div>
         </div>
       </div>
+
+      ${s.teams.length ? `
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Goals by Team</span>
+            <span class="muted text-xs">${s.teams.length} team${s.teams.length!==1?'s':''}</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Team</th><th>Department</th><th>Goals configured</th></tr></thead>
+              <tbody>
+                ${goalsSummary.map(({team, goalCount}) => `
+                  <tr>
+                    <td>${escape(team.name)}</td>
+                    <td>${escape(team.department || '—')}</td>
+                    <td>${goalCount}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : ''}
+
       ${s.teams.length ? `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem">
           ${s.teams.map(t => {

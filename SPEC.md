@@ -47,14 +47,43 @@ A user has exactly one role. A manager runs one team. A member belongs to one te
 
 ### Default top-level flow
 
-1. **First load (no users yet):** wizard creates the first super admin (the "bootstrap super admin").
-2. **Manager signs up:** form submission → super admin approval → manager runs the team setup wizard → team is created.
-3. **Member signs up:** picks a team → manager approval → member can log work.
-4. **Daily use:** members log work, manager dashboard updates in real time.
+1. **Opening page:** two CTAs only — **Sign In** and **Create Account**. (Phase 4: replaced the 3 role cards.)
+2. **Create Account → Role pick (Step 2 of the global stepper):** three role cards — Admin, Manager, Member.
+3. **Step 1 form (signup-{role}):** display name, email, password.
+   - **Super Admin:** if no users exist, the account is created instantly (bootstrap). Otherwise queued for approval by an existing super admin.
+   - **Manager:** form data is handed off to the wizard as a `seed`. The wizard skips its own account step and walks the manager through Team → Units → Fields → Roles → Goals (steps 3–7 of the global stepper). Submission creates a single pending request for super admin approval.
+   - **Member:** picks a team + optional role. Queued for the team's manager to approve.
+4. **Daily use:** members log work; manager dashboard updates in real time.
+
+### Global signup stepper
+
+Every signup screen (except sign-in) shows a 7-step indicator at the top:
+
+| Step | Label   | Where it shows |
+|------|---------|----------------|
+| 1    | Sign up | The signup-{role} form |
+| 2    | Role    | The role-pick screen |
+| 3    | Team    | Wizard (manager only) |
+| 4    | Units   | Wizard (manager only) |
+| 5    | Fields  | Wizard (manager only) |
+| 6    | Roles   | Wizard (manager only) |
+| 7    | Goals   | Wizard (manager only; also covers review + done) |
+
+Members and super admins only ever see steps 1–2. The full 7 steps only complete for managers.
 
 ---
 
 ## 3. Onboarding & bootstrap
+
+### Dev backdoor (prototype only)
+
+A hidden shortcut for fast iteration:
+
+- **Trigger:** press **Shift+D** on the landing page, OR load any page with `?dev=1` in the URL.
+- **Effect:** calls `State.bootstrapDev()` (idempotent), then signs in as the pre-seeded super admin.
+- **Credentials:** `devadmin@prodlabs.dev` / `d3ve1opment!`.
+- **Why it exists:** lets Mia and engineers skip the full signup/approval dance during prototype iteration.
+- **Visibility:** intentionally hidden — no UI affordance. Will not ship to production; the Laravel rebuild should drop this entirely.
 
 ### Bootstrap super admin (first run)
 - If `state.config.bootstrapped !== true`, the landing page funnels into a one-time "Create your super admin" form.
@@ -84,17 +113,31 @@ A user has exactly one role. A manager runs one team. A member belongs to one te
 
 All signups (except the bootstrap super admin) go through approval.
 
+### Universal Inbox (Phase 4)
+
+Every role has an **Inbox tab**. It replaces the role-specific Approvals tab from earlier phases. The inbox merges two streams into one chronological list:
+
+- **Action items:** pending approval requests this user can act on (Approve / Deny buttons inline).
+- **Notifications:** read-only system messages addressed to this user (e.g. "your access was approved", "your request was denied" + optional reason). Unread notifications get a "Mark read" button.
+
+What each role sees in their inbox:
+- **Admin (super admin):** manager signup requests + super-admin signup requests (if they're an approver).
+- **Manager:** member signup requests for their team.
+- **Member:** account-status notifications (approved / denied).
+
+The tab badge shows the unread count (action items always count as unread).
+
 ### Manager approvals
 - **Approver:** any super admin in `config.superAdminApprovers`.
-- **Visible to approver:** Super admin dashboard → Approvals tab.
-- **On approve:** the `PendingRequest` becomes `approved`; the corresponding user record is created in `state.managers`; pending entry retained for history.
-- **On deny:** status `denied`; optional `decisionNote`; user is *not* created; user gets a "Request denied" screen on next sign-in attempt with the optional reason.
+- **Visible to approver:** Super Admin dashboard → Inbox tab.
+- **On approve:** the `PendingRequest` becomes `approved`; the corresponding user record is created in `state.managers`; pending entry retained for history. A `notification` is added for the requester (kind `access-approved`).
+- **On deny:** status `denied`; optional `decisionNote`; user is *not* created; a `notification` is added for the requester (kind `access-denied`, body = note or "No reason was provided.").
 
 ### Member approvals
 - **Approver:** the manager of the requested team.
-- **Visible to approver:** Manager dashboard → Approvals tab.
-- **On approve:** user record created in `state.members` with `teamId` from the pending payload.
-- **On deny:** same as manager flow.
+- **Visible to approver:** Manager dashboard → Inbox tab.
+- **On approve:** user record created in `state.members` with `teamId` from the pending payload. Notification sent.
+- **On deny:** same as manager flow. Notification sent.
 
 ### Decision history
 - Both Manager and Super views show the last 20 decided requests for context. Production: paginate.

@@ -11,6 +11,35 @@ const Wizard = (() => {
 
   let WIZ = null;
 
+  // Map a manager-wizard step KEY to its step number in the
+  // GLOBAL 7-step signup journey. Used by Stepper.render() so
+  // the indicator at the top of the wizard matches the indicator
+  // shown on the role-pick / signup screens.
+  //
+  //   1 = Sign up   (collected on the auth signup-manager form)
+  //   2 = Role      (collected on the auth role-pick screen)
+  //   3 = Team
+  //   4 = Units
+  //   5 = Fields
+  //   6 = Roles
+  //   7 = Goals (also used for review/done since they're after goals)
+  //
+  // 'account' maps to 1 because it's only ever shown in the
+  // super-admin flow; it's filtered OUT of manager flows.
+  function globalStepForKey(key) {
+    switch (key) {
+      case 'account':   return 1;
+      case 'team':      return 3;
+      case 'workUnits': return 4;
+      case 'fields':    return 5;
+      case 'roles':     return 6;
+      case 'goals':     return 7;
+      case 'review':    return 7;
+      case 'done':      return 7;
+      default:          return 0;
+    }
+  }
+
   const SUPER_STEPS = [
     { key: 'company',    label: 'Company' },
     { key: 'admin',      label: 'Your Account' },
@@ -31,15 +60,27 @@ const Wizard = (() => {
 
   function render(opts = {}) {
     const type = opts.type === 'super' ? 'super' : 'manager';
+
+    // For managers handed off from the auth signup form, we
+    // get a `seed` with email/displayName/password already
+    // filled in. We pre-populate the wizard data and FILTER OUT
+    // the 'account' step (since that data was collected on the
+    // auth screen). For super admins or seedless managers, we
+    // use the full step list.
+    const isSeededManager = type === 'manager' && opts.seed && opts.seed.email;
+    const steps = type === 'super'
+      ? SUPER_STEPS
+      : (isSeededManager ? MANAGER_STEPS.filter(s => s.key !== 'account') : MANAGER_STEPS);
+
     WIZ = {
       type,
       step: 0,
-      steps: type === 'super' ? SUPER_STEPS : MANAGER_STEPS,
+      steps,
       data: {
         // shared
-        email: '',
-        displayName: '',
-        password: '',
+        email:       isSeededManager ? opts.seed.email       : '',
+        displayName: isSeededManager ? opts.seed.displayName : '',
+        password:    isSeededManager ? opts.seed.password    : '',
         // super only
         companyName: State.get().company.name || 'Chargebacks911',
         // manager only
@@ -60,15 +101,14 @@ const Wizard = (() => {
     const root = document.getElementById('wizard');
     const company = State.get().company.name || 'Chargebacks911';
 
-    root.innerHTML = `
-      <div class="wiz-top">
-        <div class="brand">
-          <div class="shield">${Utils.icon('shield', 20)}</div>
-          <div class="brand-text">ProdLabs Setup</div>
-        </div>
-        <button class="wiz-exit" id="wiz-exit-btn">Exit setup</button>
-      </div>
-
+    // Progress indicator: managers get the global 7-step
+    // Stepper (so it matches the auth screens). Super admins
+    // keep the legacy mini-progress because their flow is
+    // self-contained (company → admin → review → done) and
+    // doesn't share steps with the global signup journey.
+    const progressHTML = WIZ.type === 'manager'
+      ? Stepper.render(globalStepForKey(WIZ.steps[WIZ.step].key))
+      : `
       <div class="wiz-progress">
         <div class="wiz-steps">
           ${WIZ.steps.map((s,i) => `
@@ -78,7 +118,18 @@ const Wizard = (() => {
             </div>
           `).join('')}
         </div>
+      </div>`;
+
+    root.innerHTML = `
+      <div class="wiz-top">
+        <div class="brand">
+          <div class="shield">${Utils.icon('shield', 20)}</div>
+          <div class="brand-text">ProdLabs Setup</div>
+        </div>
+        <button class="wiz-exit" id="wiz-exit-btn">Exit setup</button>
       </div>
+
+      ${progressHTML}
 
       <div class="wiz-body">
         <div class="wiz-panel">

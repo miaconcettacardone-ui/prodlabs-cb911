@@ -31,11 +31,11 @@ const ManagerView = (() => {
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
     const team = session.team;
-    const pendingCount = State.pendingForUser(session).length;
+    const inboxUnread = Inbox.unreadCountForUser(session);
 
     tabsEl.innerHTML = `
       ${tabBtn('overview',  'Overview',  'home')}
-      ${tabBtn('approvals', 'Approvals', 'bell', pendingCount)}
+      ${tabBtn('inbox',     'Inbox',     'bell', inboxUnread)}
       ${tabBtn('team',      'Team',      'users')}
       ${tabBtn('activity',  'Activity',  'chart')}
       ${tabBtn('log',       'Log Work',  'plus')}
@@ -60,7 +60,7 @@ const ManagerView = (() => {
     }
 
     if      (tab === 'overview')  renderOverview(main, session);
-    else if (tab === 'approvals') renderApprovals(main, session);
+    else if (tab === 'inbox')     InboxView.render(main, session, () => render(session));
     else if (tab === 'team')      renderTeam(main, session);
     else if (tab === 'activity')  renderActivity(main, session);
     else if (tab === 'log')       renderLog(main, session);
@@ -96,7 +96,7 @@ const ManagerView = (() => {
           <div class="ph-sub">${escape(team.department || 'Team')} · ${members.length} member${members.length!==1?'s':''} · Welcome back, ${escape(session.user.displayName.split(' ')[0])}</div>
         </div>
         <div class="flex gap-8">
-          ${pendingCount ? `<button class="btn btn-ghost" data-go="approvals">${Utils.icon('bell',14)} ${pendingCount} pending</button>` : ''}
+          ${pendingCount ? `<button class="btn btn-ghost" data-go="inbox">${Utils.icon('bell',14)} ${pendingCount} pending</button>` : ''}
           <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
         </div>
       </div>
@@ -315,7 +315,7 @@ const ManagerView = (() => {
         <div class="member-grid">
           ${members.map(m => renderMemberCard(team, m, records)).join('')}
         </div>
-      ` : `<div class="card">${emptyState('No members yet', 'Members can request to join your team from the home page. Their requests will show in the Approvals tab.', 'users')}</div>`}
+      ` : `<div class="card">${emptyState('No members yet', 'Members can request to join your team from the home page. Their requests will show in the Inbox tab.', 'users')}</div>`}
     `;
 
     main.querySelectorAll('[data-drill]').forEach(el => {

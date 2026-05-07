@@ -200,6 +200,16 @@ const Auth = (() => {
       decidedBy: decidedByEmail,
       decidedAt: Date.now(),
     });
+    // Notify the requester so they see the good news in their Inbox
+    // the next time they sign in. The body text is role-aware so it
+    // matches what they signed up for.
+    const roleWord = p.type === 'super' ? 'super admin' : p.type;
+    State.addNotification({
+      recipientEmail: p.email,
+      kind: 'access-approved',
+      title: 'Your access has been approved',
+      body: `Welcome aboard! You can now sign in as a ${roleWord}.`,
+    });
     return { ok:true };
   }
 
@@ -212,6 +222,16 @@ const Auth = (() => {
       decidedBy: decidedByEmail,
       decidedAt: Date.now(),
       decisionNote: note || '',
+    });
+    // Same idea — notify the requester so the denial shows up in
+    // their inbox if they ever try to sign in (the auth screen also
+    // surfaces the denial, but the notification is a backup channel
+    // and matches the inbox UX).
+    State.addNotification({
+      recipientEmail: p.email,
+      kind: 'access-denied',
+      title: 'Your access request was denied',
+      body: note ? note : 'No reason was provided.',
     });
     return { ok:true };
   }

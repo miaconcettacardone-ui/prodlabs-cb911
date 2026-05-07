@@ -76,6 +76,10 @@ const Router = (() => {
     const root = document.getElementById('app');
     const company = State.get().company.name || 'Chargebacks911';
 
+    // Map the internal session.type to a friendlier label so
+    // the topbar reads "Super Admin · Mia C." instead of "super".
+    const roleLabel = (t) => t === 'super' ? 'Super Admin' : t === 'manager' ? 'Manager' : 'Member';
+
     // build app shell once per render
     root.innerHTML = `
       <div class="topbar">
@@ -88,8 +92,8 @@ const Router = (() => {
         </div>
         <div class="topbar-spacer"></div>
         <div class="tbu">
-          <span class="badge ${session.type==='super'?'badge-super':session.type==='manager'?'badge-mgr':'badge-mem'}">${session.type}</span>
-          ${escape(session.user.displayName)}
+          <span class="badge ${session.type==='super'?'badge-super':session.type==='manager'?'badge-mgr':'badge-mem'}">${roleLabel(session.type)}</span>
+          <span class="tbu-name">${escape(session.user.displayName)}</span>
         </div>
         <div class="tb-actions">
           <button class="topbar-btn" id="tb-logout">${Utils.icon('logout',14)} Sign Out</button>

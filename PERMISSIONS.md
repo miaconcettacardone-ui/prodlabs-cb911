@@ -177,26 +177,32 @@ These are the *read* rules — what you can see. They're separate from *write* r
 - All companies' data — but the prototype is single-tenant so this is just "all teams in the company."
 - All users (super admins, managers, members).
 - All records across all teams.
-- All pending requests of any type.
+- All pending requests of any type — surfaced through the **Inbox tab** (Phase 4).
 - Decision history for everyone.
 
 ### Manager sees
 - Their own team only.
 - Their team's members (incl. their own user record).
 - Their team's records.
-- Pending member requests for their team.
+- Pending member requests for their team — surfaced through the **Inbox tab** (Phase 4).
 - Decision history for their team's member approvals.
 - The manager dashboard analytics for their team.
 - **Manager does NOT see:** other managers, other teams, other teams' records, super admins, super-admin-only config.
 
-### Member sees
-- Themselves only — the user record, the team they belong to (name + roles list, but not other members' records).
-- Their own records.
-- Their own goal progress.
-- **Member does NOT see:** other members' records, leaderboards, manager-only views, anyone else's data, any approval queues.
+### Member sees (Phase 4)
+- Themselves: their own user record, their own records, their own goal progress (last 7 days per active goal).
+- **Team Leaderboard** (Stats tab): all-time record counts ranked across teammates. Names + counts only — no per-record drill-down. Members can see who's ahead of them.
+- **Team Roster** (Users tab): read-only list of teammates (name + role) and the manager. No records, no metrics.
+- **Inbox**: account-status notifications addressed to them (e.g. "Your access has been approved").
+- **Member does NOT see:** other members' individual records, manager-only analytics, approval queues, anyone outside their team.
 
-### A note on "team roster" visibility for members
-The prototype currently **does not** show members a roster of their own team. We considered it (it's the kind of "see who else is on the team" feature people expect) but rejected it for v1 because it leaks names of coworkers in a way that wasn't asked for. Easy to add later if the company wants it; would just be a new tab in the member view rendering `State.membersOfTeam(team.id)` (without records).
+### Phase 4 inbox — UI change, not a permission change
+
+The Inbox tab replaces the per-role Approvals tab from earlier phases. It surfaces the same approval queue each role had before, plus a new notification stream. **No new authorization rules** — every action item shown in someone's inbox is one they were already allowed to act on. The shift is purely UX.
+
+### A note on the Phase 4 roster + leaderboard expansion
+
+Earlier phases deliberately kept members siloed (no team-mates' names visible). Phase 4 relaxes that: members now see teammate names on the Stats leaderboard and the Users roster. Records remain private — a member never sees another member's individual record, only aggregate counts. This is a deliberate trade: more team awareness for slightly less privacy. Easy to roll back behind a feature flag if a customer pushes back.
 
 ---
 
