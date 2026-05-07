@@ -383,13 +383,20 @@ const SuperView = (() => {
   function renderAdmins(main, session) {
     const s = State.get();
     const approvers = (s.config.superAdminApprovers || []).map(e => e.toLowerCase());
+
+    // Helper to render the "team / role" subline on user rows
+    const teamLabel = (teamId) => {
+      const t = s.teams.find(x => x.id === teamId);
+      return t ? escape(t.name) : '<span class="muted">no team</span>';
+    };
+
     main.innerHTML = `
       <div class="page-header">
         <div>
-          <h2>Admins & Approvers</h2>
-          <div class="ph-sub">Manage who has full platform access and who can approve new super admins.</div>
+          <h2>Users</h2>
+          <div class="ph-sub">Create and manage super admins, managers, and members.</div>
         </div>
-        <button class="btn btn-primary" id="add-super">${Utils.icon('plus',14)} Add Super Admin</button>
+        <button class="btn btn-primary" id="add-user">${Utils.icon('plus',14)} Add User</button>
       </div>
 
       <div class="card">
@@ -408,14 +415,16 @@ const SuperView = (() => {
                 <div class="u-name">${escape(a.displayName)}
                   ${isMe ? '<span class="pill pill-y" style="margin-left:6px;font-size:10px">you</span>':''}
                   ${isApprover ? '<span class="pill pill-r" style="margin-left:6px;font-size:10px">approver</span>':''}
+                  ${a.username ? `<span class="u-uname">@${escape(a.username)}</span>`:''}
                 </div>
-                <div class="u-sub">${escape(a.email)}${a.approvedBy?' · approved by '+(a.approvedBy==='__bootstrap__'?'(bootstrap)':escape(a.approvedBy)):''}</div>
+                <div class="u-sub">${escape(a.email)}${a.approvedBy?' · added by '+(a.approvedBy==='__bootstrap__'?'(bootstrap)':escape(a.approvedBy)):''}</div>
               </div>
               <div class="u-actions">
                 <button class="btn btn-ghost btn-sm" data-toggle-approver="${escape(a.email)}">
                   ${isApprover ? 'Remove approver' : 'Make approver'}
                 </button>
-                ${!isMe && !lastOne ? `<button class="btn btn-danger btn-sm" data-rm-super="${escape(a.email)}">${Utils.icon('trash',12)}</button>` : ''}
+                <button class="btn btn-ghost btn-sm" data-edit-user="${escape(a.email)}" data-edit-type="super" title="Edit">${Utils.icon('edit',12)}</button>
+                ${!isMe && !lastOne ? `<button class="btn btn-danger btn-sm" data-rm-user="${escape(a.email)}" data-rm-type="super" title="Delete">${Utils.icon('trash',12)}</button>` : ''}
               </div>
             </div>
           `;
@@ -424,7 +433,7 @@ const SuperView = (() => {
 
       <div class="card">
         <div class="card-head">
-          <span class="card-title">Team Managers</span>
+          <span class="card-title">Managers</span>
           <span class="muted" style="font-size:12px">${s.managers.length}</span>
         </div>
         ${s.managers.length ? s.managers.map(m => {
@@ -433,12 +442,40 @@ const SuperView = (() => {
             <div class="user-row">
               <div class="avatar">${Utils.initials(m.displayName)}</div>
               <div class="u-main">
-                <div class="u-name">${escape(m.displayName)}</div>
+                <div class="u-name">${escape(m.displayName)}
+                  ${m.username ? `<span class="u-uname">@${escape(m.username)}</span>`:''}
+                </div>
                 <div class="u-sub">${escape(m.email)} · ${team ? escape(team.name) : '<span class="muted">no team</span>'}</div>
+              </div>
+              <div class="u-actions">
+                <button class="btn btn-ghost btn-sm" data-edit-user="${escape(m.email)}" data-edit-type="manager" title="Edit">${Utils.icon('edit',12)}</button>
+                <button class="btn btn-danger btn-sm" data-rm-user="${escape(m.email)}" data-rm-type="manager" title="Delete">${Utils.icon('trash',12)}</button>
               </div>
             </div>
           `;
-        }).join('') : `<div class="card-body">${emptyState('No managers yet', 'Approve a manager request to add the first one.')}</div>`}
+        }).join('') : `<div class="card-body">${emptyState('No managers yet', 'Click "Add User" above to create one.')}</div>`}
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Members</span>
+          <span class="muted" style="font-size:12px">${s.members.length}</span>
+        </div>
+        ${s.members.length ? s.members.map(m => `
+          <div class="user-row">
+            <div class="avatar">${Utils.initials(m.displayName)}</div>
+            <div class="u-main">
+              <div class="u-name">${escape(m.displayName)}
+                ${m.username ? `<span class="u-uname">@${escape(m.username)}</span>`:''}
+              </div>
+              <div class="u-sub">${escape(m.email)} · ${teamLabel(m.teamId)}${m.role?' · '+escape(m.role):''}</div>
+            </div>
+            <div class="u-actions">
+              <button class="btn btn-ghost btn-sm" data-edit-user="${escape(m.email)}" data-edit-type="member" title="Edit">${Utils.icon('edit',12)}</button>
+              <button class="btn btn-danger btn-sm" data-rm-user="${escape(m.email)}" data-rm-type="member" title="Delete">${Utils.icon('trash',12)}</button>
+            </div>
+          </div>
+        `).join('') : `<div class="card-body">${emptyState('No members yet', 'Click "Add User" above to create one.')}</div>`}
       </div>
     `;
     bindAdminActions(main, session);
@@ -457,45 +494,333 @@ const SuperView = (() => {
         render(session);
       };
     });
-    main.querySelectorAll('[data-rm-super]').forEach(btn => {
+
+    // Delete (any role)
+    main.querySelectorAll('[data-rm-user]').forEach(btn => {
       btn.onclick = () => {
-        const email = btn.dataset.rmSuper;
-        if (!Utils.confirm('Remove super admin '+email+'?')) return;
-        State.deleteUser(email, 'super');
-        // also remove from approvers
-        const list = (State.get().config.superAdminApprovers || []).filter(e => e.toLowerCase() !== email.toLowerCase());
-        State.updateConfig({ superAdminApprovers: list });
+        const email = btn.dataset.rmUser;
+        const type  = btn.dataset.rmType;
+        if (!Utils.confirm(`Remove ${type} ${email}?\nTheir records will remain but they won't be able to sign in.`)) return;
+        State.deleteUser(email, type);
+        // If super admin, also strip from approvers
+        if (type === 'super') {
+          const list = (State.get().config.superAdminApprovers || [])
+            .filter(e => e.toLowerCase() !== email.toLowerCase());
+          State.updateConfig({ superAdminApprovers: list });
+        }
+        // If manager, unassign from any team they managed
+        if (type === 'manager') {
+          State.get().teams.forEach(t => {
+            if ((t.managerEmail||'').toLowerCase() === email.toLowerCase()) {
+              State.updateTeam(t.id, { managerEmail: null });
+            }
+          });
+        }
         Utils.toast('Removed', 'good');
         render(session);
       };
     });
-    const addBtn = document.getElementById('add-super');
-    if (addBtn) addBtn.onclick = () => {
-      Utils.openModal(`
-        <h3>Add Super Admin</h3>
-        <p class="helper" style="margin-bottom:1rem">This bypasses the approval flow. Use only for emergency access.</p>
-        <div class="form-row"><label class="label">Display name</label><input id="aa-name" placeholder="Jane Doe"></div>
-        <div class="form-row"><label class="label">Email</label><input type="email" id="aa-email" placeholder="jane@company.com"></div>
-        <div class="form-row"><label class="label">Password</label><input type="text" id="aa-pass" placeholder="temp password"></div>
-        <div class="modal-actions">
-          <button class="btn btn-ghost btn-sm" id="aa-cancel">Cancel</button>
-          <button class="btn btn-primary btn-sm" id="aa-confirm">Add</button>
-        </div>
-      `);
-      document.getElementById('aa-cancel').onclick = () => Utils.closeModal();
-      document.getElementById('aa-confirm').onclick = () => {
-        const name = document.getElementById('aa-name').value.trim();
-        const email = document.getElementById('aa-email').value.trim().toLowerCase();
-        const pass = document.getElementById('aa-pass').value;
-        if (!name || !email || !pass) { Utils.toast('All fields required', 'bad'); return; }
-        if (!Utils.validEmail(email)) { Utils.toast('Invalid email', 'bad'); return; }
-        if (State.emailInUse(email)) { Utils.toast('Email in use', 'bad'); return; }
-        State.addSuperAdmin({ email, displayName: name, password: pass, approvedBy: session.user.email });
-        Utils.closeModal();
-        Utils.toast('Super admin added', 'good');
-        render(session);
-      };
+
+    // Edit (any role) — open the unified modal in edit mode
+    main.querySelectorAll('[data-edit-user]').forEach(btn => {
+      btn.onclick = () => openUserModal(session, {
+        mode: 'edit',
+        email: btn.dataset.editUser,
+        type:  btn.dataset.editType,
+      });
+    });
+
+    // Add User — opens unified modal in create mode
+    const addBtn = document.getElementById('add-user');
+    if (addBtn) addBtn.onclick = () => openUserModal(session, { mode: 'create' });
+  }
+
+  // ===== UNIFIED ADD/EDIT USER MODAL =========================
+  // One modal handles all three roles. The role picker at the top
+  // drives which extra fields appear. In edit mode, the role can't
+  // be changed (deleting + recreating is the supported path for that).
+
+  function openUserModal(session, opts) {
+    const isEdit = opts.mode === 'edit';
+    const s = State.get();
+
+    // Pre-fill data when editing
+    let editing = null;
+    if (isEdit) {
+      const list = opts.type === 'super' ? s.superAdmins
+                 : opts.type === 'manager' ? s.managers
+                 : s.members;
+      editing = list.find(u => u.email.toLowerCase() === opts.email.toLowerCase());
+      if (!editing) { Utils.toast('User not found', 'bad'); return; }
+    }
+    const startRole = isEdit ? opts.type : 'member';
+
+    // Find unmanaged teams (no current manager) — used in the
+    // "existing team" dropdown for new managers.
+    const managedTeamIds = new Set(s.managers.map(m => {
+      const t = State.teamForManager(m.email);
+      return t ? t.id : null;
+    }).filter(Boolean));
+    // When editing a manager, allow them to keep their current team.
+    const myCurrentTeamId = (isEdit && editing && editing.teamId) ? editing.teamId
+      : (isEdit && opts.type === 'manager' ? (State.teamForManager(editing.email) || {}).id : null);
+
+    // Helper: build team <option>s. For Add Manager, only show
+    // teams without a current manager (or this manager's team in edit).
+    const teamOptionsForManager = () => {
+      return s.teams.filter(t => !managedTeamIds.has(t.id) || t.id === myCurrentTeamId)
+        .map(t => `<option value="${t.id}" ${t.id===myCurrentTeamId?'selected':''}>${escape(t.name)}${t.department?' — '+escape(t.department):''}</option>`)
+        .join('');
     };
+    const teamOptionsForMember = () => {
+      return s.teams.map(t =>
+        `<option value="${t.id}" ${editing && editing.teamId === t.id ? 'selected':''}>${escape(t.name)}${t.department?' — '+escape(t.department):''}</option>`
+      ).join('');
+    };
+
+    // Department <option>s for the "create new team" sub-flow.
+    const deptOptions = () => State.getDepartments()
+      .map(d => `<option value="${escape(d)}">${escape(d)}</option>`)
+      .join('') + '<option value="__other__">Other (type below)…</option>';
+
+    // Role dropdown options — when editing, lock to current role (a label).
+    const roleSelector = isEdit
+      ? `<input type="text" disabled value="${
+          opts.type === 'super' ? 'Super Admin' :
+          opts.type === 'manager' ? 'Manager' : 'Member'
+        }">`
+      : `<select id="ru-role">
+           <option value="member">Member</option>
+           <option value="manager">Manager</option>
+           <option value="super">Super Admin</option>
+         </select>`;
+
+    Utils.openModal(`
+      <h3>${isEdit ? 'Edit user' : 'Add user'}</h3>
+      <p class="helper" style="margin-bottom:1rem">
+        ${isEdit
+          ? 'Update name, username, email, or password. Role can’t be changed — delete and re-add to switch roles.'
+          : 'Pick a role, then fill in the rest. The user can sign in with their <strong>username</strong> and password right away.'}
+      </p>
+
+      <div class="form-row">
+        <label class="label">Role</label>
+        ${roleSelector}
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-row"><label class="label">Display name</label>
+          <input id="ru-name" placeholder="Jane Doe" value="${escape((editing&&editing.displayName)||'')}"></div>
+        <div class="form-row"><label class="label">Username</label>
+          <input id="ru-username" placeholder="janed" value="${escape((editing&&editing.username)||'')}"></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-row"><label class="label">Email</label>
+          <input type="email" id="ru-email" placeholder="jane@company.com"
+                 value="${escape((editing&&editing.email)||'')}"
+                 ${isEdit ? 'disabled' : ''}></div>
+        <div class="form-row">
+          <label class="label">Password ${isEdit?'<span class="muted" style="font-weight:400">(leave blank to keep)</span>':''}</label>
+          <input type="text" id="ru-pass" placeholder="${isEdit?'••••••••':'temporary password'}"></div>
+      </div>
+
+      <!-- Manager-only fields: team picker -->
+      <div id="ru-mgr-fields" style="display:none;border-top:1px solid var(--bor);padding-top:1rem;margin-top:.75rem">
+        <div class="form-row">
+          <label class="label">Team</label>
+          <div class="radio-group">
+            <label><input type="radio" name="ru-team-mode" value="existing" checked> Pick existing team</label>
+            <label><input type="radio" name="ru-team-mode" value="new"> Create a new team</label>
+          </div>
+        </div>
+        <div id="ru-team-existing">
+          <div class="form-row">
+            <label class="label">Existing team</label>
+            <select id="ru-team-id">
+              <option value="">(no team — assign later)</option>
+              ${teamOptionsForManager()}
+            </select>
+          </div>
+        </div>
+        <div id="ru-team-new" style="display:none">
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="label">Team name</label>
+              <input id="ru-newteam-name" placeholder="Alerts West">
+            </div>
+            <div class="form-row">
+              <label class="label">Department</label>
+              <select id="ru-newteam-dept">${deptOptions()}</select>
+            </div>
+          </div>
+          <div class="form-row" id="ru-newteam-other-row" style="display:none">
+            <label class="label">New department name</label>
+            <input id="ru-newteam-other" placeholder="e.g. Underwriting">
+          </div>
+        </div>
+      </div>
+
+      <!-- Member-only fields: team + role -->
+      <div id="ru-mem-fields" style="display:none;border-top:1px solid var(--bor);padding-top:1rem;margin-top:.75rem">
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label class="label">Team</label>
+            <select id="ru-mem-team">
+              <option value="">(select a team)</option>
+              ${teamOptionsForMember()}
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="label">Role on team</label>
+            <select id="ru-mem-role">
+              ${LIBRARY.roles.map(r =>
+                `<option value="${escape(r)}" ${editing && editing.role === r ? 'selected':''}>${escape(r)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" id="ru-cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="ru-confirm">${isEdit?'Save changes':'Create user'}</button>
+      </div>
+    `);
+
+    // ----- modal wiring ------------------------------------
+    const roleSel    = document.getElementById('ru-role');
+    const mgrFields  = document.getElementById('ru-mgr-fields');
+    const memFields  = document.getElementById('ru-mem-fields');
+    const teamMode   = () => (document.querySelector('input[name="ru-team-mode"]:checked')||{}).value;
+    const teamExBox  = document.getElementById('ru-team-existing');
+    const teamNewBox = document.getElementById('ru-team-new');
+    const deptSel    = document.getElementById('ru-newteam-dept');
+    const deptOther  = document.getElementById('ru-newteam-other-row');
+
+    function syncRoleVisibility() {
+      const role = isEdit ? opts.type : roleSel.value;
+      mgrFields.style.display = role === 'manager' ? '' : 'none';
+      memFields.style.display = role === 'member'  ? '' : 'none';
+    }
+    function syncTeamMode() {
+      const mode = teamMode();
+      teamExBox.style.display  = mode === 'existing' ? '' : 'none';
+      teamNewBox.style.display = mode === 'new'      ? '' : 'none';
+    }
+    function syncDeptOther() {
+      deptOther.style.display = deptSel.value === '__other__' ? '' : 'none';
+    }
+    syncRoleVisibility();
+    syncTeamMode();
+    syncDeptOther();
+    if (roleSel) roleSel.addEventListener('change', syncRoleVisibility);
+    document.querySelectorAll('input[name="ru-team-mode"]').forEach(r =>
+      r.addEventListener('change', syncTeamMode));
+    if (deptSel) deptSel.addEventListener('change', syncDeptOther);
+
+    document.getElementById('ru-cancel').onclick = () => Utils.closeModal();
+    document.getElementById('ru-confirm').onclick = () => submitUserModal(session, isEdit, editing, opts);
+  }
+
+  // Validate + commit the unified Add/Edit User modal.
+  function submitUserModal(session, isEdit, editing, opts) {
+    const role = isEdit ? opts.type : document.getElementById('ru-role').value;
+    const name = document.getElementById('ru-name').value.trim();
+    const username = document.getElementById('ru-username').value.trim();
+    const emailEl = document.getElementById('ru-email');
+    const email = (emailEl.disabled ? editing.email : emailEl.value.trim()).toLowerCase();
+    const passRaw = document.getElementById('ru-pass').value;
+
+    if (!name)     return Utils.toast('Display name required', 'bad');
+    if (!username) return Utils.toast('Username required', 'bad');
+    if (!email)    return Utils.toast('Email required', 'bad');
+    if (!Utils.validEmail(email)) return Utils.toast('Invalid email', 'bad');
+    if (!isEdit && !passRaw) return Utils.toast('Password required', 'bad');
+    if (passRaw && passRaw.length < CONFIG.PASSWORD_MIN_LENGTH)
+      return Utils.toast(`Password min ${CONFIG.PASSWORD_MIN_LENGTH} chars`, 'bad');
+
+    // Uniqueness checks. In edit mode, allow keeping the same username/email.
+    const usernameChanged = !editing || (editing.username||'').toLowerCase() !== username.toLowerCase();
+    const emailChanged    = !editing || editing.email.toLowerCase() !== email.toLowerCase();
+    if (usernameChanged && Auth.usernameInUse(username))
+      return Utils.toast('Username already in use', 'bad');
+    if (emailChanged && State.emailInUse(email))
+      return Utils.toast('Email already in use', 'bad');
+
+    // ----- EDIT mode: just patch the existing record ----------
+    if (isEdit) {
+      const patch = { displayName: name, username, email };
+      if (passRaw) patch.password = passRaw;
+
+      // Member-specific patch: team + role
+      if (role === 'member') {
+        const teamId = document.getElementById('ru-mem-team').value;
+        const memberRole = document.getElementById('ru-mem-role').value;
+        if (!teamId) return Utils.toast('Pick a team', 'bad');
+        patch.teamId = teamId;
+        patch.role   = memberRole;
+      }
+      State.updateUser(editing.email, role, patch);
+
+      // Manager team reassignment is more involved — skip in v1
+      // and mention it.
+      if (role === 'manager') {
+        // We don't reassign a manager's team here — that's handled
+        // on the Teams tab. Editing a manager only updates their
+        // identity fields.
+      }
+
+      Utils.closeModal();
+      Utils.toast('User updated', 'good');
+      render(session);
+      return;
+    }
+
+    // ----- CREATE mode: build the full record -----------------
+    const baseFields = {
+      email, username, displayName: name, password: passRaw,
+      approvedBy: session.user.email,
+    };
+
+    if (role === 'super') {
+      State.addSuperAdmin(baseFields);
+    } else if (role === 'manager') {
+      // Resolve the team
+      let teamId = null;
+      const mode = (document.querySelector('input[name="ru-team-mode"]:checked')||{}).value;
+      if (mode === 'new') {
+        const teamName = document.getElementById('ru-newteam-name').value.trim();
+        let dept = document.getElementById('ru-newteam-dept').value;
+        if (dept === '__other__') {
+          dept = document.getElementById('ru-newteam-other').value.trim();
+          if (!dept) return Utils.toast('Department name required', 'bad');
+          State.addDepartment(dept); // persist for future dropdowns
+        }
+        if (!teamName) return Utils.toast('Team name required', 'bad');
+        const team = State.addTeam({
+          name: teamName, department: dept,
+          managerEmail: email,
+          workUnits: [], workUnitLabels: {},
+          fields: [], roles: [], goals: {},
+        });
+        teamId = team.id;
+      } else {
+        teamId = document.getElementById('ru-team-id').value || null;
+        if (teamId) {
+          // Stamp this manager onto the team so teamForManager() works.
+          State.updateTeam(teamId, { managerEmail: email });
+        }
+      }
+      State.addManager({ ...baseFields, teamId });
+    } else if (role === 'member') {
+      const teamId = document.getElementById('ru-mem-team').value;
+      const memberRole = document.getElementById('ru-mem-role').value;
+      if (!teamId) return Utils.toast('Pick a team', 'bad');
+      State.addMember({ ...baseFields, teamId, role: memberRole });
+    }
+
+    Utils.closeModal();
+    Utils.toast(role==='super'?'Super admin created':role==='manager'?'Manager created':'Member created', 'good');
+    render(session);
   }
 
   // ===== SETTINGS =====

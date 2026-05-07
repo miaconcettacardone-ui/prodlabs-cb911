@@ -352,6 +352,28 @@
 .user-row:hover { background: var(--s2); }
 .user-row .u-main { flex: 1; min-width: 0; }
 .user-row .u-name { font-weight: 600; font-size: 13px; }
+.user-row .u-uname {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--mut);
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+/* Radio group used inside the Add User modal for "existing vs new team" */
+.radio-group {
+  display: flex; gap: 1.25rem; flex-wrap: wrap;
+  padding: .5rem 0;
+}
+.radio-group label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--ink);
+  cursor: pointer; user-select: none;
+  font-weight: 500;
+}
+.radio-group input[type="radio"] {
+  accent-color: var(--cb-red);
+  cursor: pointer;
+}
 .user-row .u-sub  { font-size: 11px; color: var(--mut); margin-top: 2px; }
 .user-row .u-email{ font-size: 11px; color: var(--mut); }
 .user-row .u-actions { display: flex; gap: 6px; }

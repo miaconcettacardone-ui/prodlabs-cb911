@@ -231,6 +231,15 @@ const State = (() => {
     save();
     return team;
   }
+  // Patch a team record in place. Used by the Add User modal when
+  // assigning a new manager to an existing team, and by the (future)
+  // Teams tab edit flow.
+  function updateTeam(teamId, patch) {
+    const s = load();
+    const i = s.teams.findIndex(t => t.id === teamId);
+    if (i >= 0) { s.teams[i] = { ...s.teams[i], ...patch }; save(); return s.teams[i]; }
+    return null;
+  }
   // Add a single record. Used when the user logs work via the
   // "Log Work" tab — one record at a time.
   //
@@ -493,7 +502,7 @@ const State = (() => {
     teamForManager, teamById, membersOfTeam, recordsOfTeam,
     setSession, clearSession, currentSession,
     addSuperAdmin, addManager, addMember,
-    addTeam, addRecord, addRecords, updateRecord, deleteRecord,
+    addTeam, updateTeam, addRecord, addRecords, updateRecord, deleteRecord,
     updateCompany, updateConfig, updateUser, deleteUser,
     addPending, updatePending, pendingForUser,
     addNotification, notificationsForUser, markNotificationRead,

@@ -19,13 +19,18 @@
  *       signup-* in any loaded JS
  *    8. CONFIG.FEATURES Phase 5 flags
  *    9. LIBRARY reseeded with CB911 vocab
+ *   10. Tab content renders without throwing for every role x tab
+ *   11. Phase 6 part 2: unified Add User modal + edit/delete on
+ *       admin Users tab (role picker, manager team flow with new-team
+ *       sub-flow + new-department, member flow with team+role,
+ *       super admin flow, validation rejecting duplicates)
  *
- *  NOT covered (Phase 6 part 2):
+ *  NOT covered (Phase 6 part 3+):
  *    - Real Dashboard tab implementation (currently stubbed)
  *    - Real History/PDF reports (currently stubbed)
  *    - Real top-level Import refactor (currently a relabel of Log Work)
  *    - Wizard-walkthrough inside Settings
- *    - Add Manager / Add Member / Add Super Admin modals
+ *    - Manager empty-state CTA when team isn't configured
  *
  *  When those land, expand this test accordingly.
  * ============================================================ */
@@ -74,6 +79,7 @@ const bundle = scriptTags.map(read).join('\n;\n') + `
   window.LIBRARY = LIBRARY;
   window.State   = State;
   window.Auth    = Auth;
+  window.Utils   = Utils;
   window.Landing = Landing;
   window.Router  = Router;
 `;
@@ -82,7 +88,7 @@ s.textContent = bundle;
 window.document.head.appendChild(s);
 
 // Pull globals out for assertions
-const { State, Auth, CONFIG, LIBRARY, Landing, Router } = window;
+const { State, Auth, CONFIG, LIBRARY, Landing, Router, Utils } = window;
 
 // ----- 2. isFirstRun -----
 console.log('\n[2] State.isFirstRun()');
@@ -251,6 +257,149 @@ clickThrough('manager', 'mgr@test.com',
   ['dashboard','stats','teams','import','history','users','messages','settings']);
 clickThrough('member', 'mbr@test.com',
   ['dashboard','goals','import','history','messages','settings']);
+
+// ----- 11. Phase 6 part 2: unified Add User modal + edit/delete -----
+console.log('\n[11] Add User modal + edit/delete (admin Users tab)');
+
+// Reset everything and set up as admin
+State.reset();
+State.bootstrapDev();
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+// Click the Users tab
+const usersTab = window.document.querySelector('#app .tabs .tab[data-tab="users"]');
+usersTab && usersTab.click();
+
+expect('Users tab shows three role sections',
+  window.document.querySelectorAll('#app-main .card').length >= 3);
+expect('"Add User" button present',
+  !!window.document.getElementById('add-user'));
+
+// Open the Add User modal
+window.document.getElementById('add-user').click();
+expect('Modal opens with role selector', !!window.document.getElementById('ru-role'));
+expect('Modal default role = member', window.document.getElementById('ru-role').value === 'member');
+expect('Member-only fields visible by default',
+  window.document.getElementById('ru-mem-fields').style.display === '');
+expect('Manager-only fields hidden by default',
+  window.document.getElementById('ru-mgr-fields').style.display === 'none');
+
+// Switch to Manager — manager fields should appear
+const roleSel = window.document.getElementById('ru-role');
+roleSel.value = 'manager';
+roleSel.dispatchEvent(new window.Event('change'));
+expect('Switching to Manager reveals manager fields',
+  window.document.getElementById('ru-mgr-fields').style.display === '');
+expect('Member fields hidden when Manager selected',
+  window.document.getElementById('ru-mem-fields').style.display === 'none');
+expect('Existing-team radio block visible by default',
+  window.document.getElementById('ru-team-existing').style.display === '');
+
+// Switch to "Create new team" radio
+const newRadio = window.document.querySelector('input[name="ru-team-mode"][value="new"]');
+newRadio.checked = true;
+newRadio.dispatchEvent(new window.Event('change'));
+expect('Create-new-team block visible after radio toggle',
+  window.document.getElementById('ru-team-new').style.display === '');
+expect('Existing-team block hidden after radio toggle',
+  window.document.getElementById('ru-team-existing').style.display === 'none');
+
+// Switch dept dropdown to "__other__" → text input should appear
+const deptSel = window.document.getElementById('ru-newteam-dept');
+deptSel.value = '__other__';
+deptSel.dispatchEvent(new window.Event('change'));
+expect('Department=Other reveals new-dept input',
+  window.document.getElementById('ru-newteam-other-row').style.display === '');
+
+// Fill in form to actually create a manager + new team
+window.document.getElementById('ru-name').value = 'Phase 6 Manager';
+window.document.getElementById('ru-username').value = 'p6mgr';
+window.document.getElementById('ru-email').value = 'p6mgr@test.com';
+window.document.getElementById('ru-pass').value = 'longpassword!';
+window.document.getElementById('ru-newteam-name').value = 'Phase 6 Team';
+window.document.getElementById('ru-newteam-other').value = 'Underwriting';
+
+// Submit
+window.document.getElementById('ru-confirm').click();
+
+// Verify creation
+expect('manager record exists after submit',
+  State.get().managers.some(m => m.email === 'p6mgr@test.com'));
+expect('new team created with name "Phase 6 Team"',
+  State.get().teams.some(t => t.name === 'Phase 6 Team'));
+expect('manager linked to new team',
+  State.teamForManager('p6mgr@test.com').name === 'Phase 6 Team');
+expect('new department "Underwriting" was registered',
+  State.getDepartments().includes('Underwriting'));
+expect('manager can log in with new username',
+  Auth.tryLogin('p6mgr', 'longpassword!').ok === true);
+
+// Re-render Users tab and try the Add Member flow
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="users"]').click();
+window.document.getElementById('add-user').click();
+window.document.getElementById('ru-role').value = 'member';
+window.document.getElementById('ru-role').dispatchEvent(new window.Event('change'));
+window.document.getElementById('ru-name').value = 'Phase 6 Member';
+window.document.getElementById('ru-username').value = 'p6mbr';
+window.document.getElementById('ru-email').value = 'p6mbr@test.com';
+window.document.getElementById('ru-pass').value = 'longpassword!';
+const memberTeamSel = window.document.getElementById('ru-mem-team');
+// Pick the team we just created
+const p6Team = State.get().teams.find(t => t.name === 'Phase 6 Team');
+memberTeamSel.value = p6Team.id;
+window.document.getElementById('ru-mem-role').value = 'Analyst';
+window.document.getElementById('ru-confirm').click();
+
+expect('member created with team + role',
+  State.get().members.some(m => m.email === 'p6mbr@test.com' && m.teamId === p6Team.id && m.role === 'Analyst'));
+expect('member can log in with new username',
+  Auth.tryLogin('p6mbr', 'longpassword!').ok === true);
+
+// Add Super Admin flow
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="users"]').click();
+window.document.getElementById('add-user').click();
+window.document.getElementById('ru-role').value = 'super';
+window.document.getElementById('ru-role').dispatchEvent(new window.Event('change'));
+window.document.getElementById('ru-name').value = 'Phase 6 SuperAdmin';
+window.document.getElementById('ru-username').value = 'p6super';
+window.document.getElementById('ru-email').value = 'p6super@test.com';
+window.document.getElementById('ru-pass').value = 'longpassword!';
+window.document.getElementById('ru-confirm').click();
+
+expect('super admin created',
+  State.get().superAdmins.some(a => a.email === 'p6super@test.com'));
+expect('new super admin can log in',
+  Auth.tryLogin('p6super', 'longpassword!').ok === true);
+
+// Verify Edit/Delete buttons present on rows
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="users"]').click();
+expect('edit buttons present on user rows',
+  window.document.querySelectorAll('[data-edit-user]').length >= 3);
+expect('delete buttons present on non-protected rows',
+  window.document.querySelectorAll('[data-rm-user]').length >= 2);
+
+// Validation: duplicate username should be rejected
+window.document.getElementById('add-user').click();
+window.document.getElementById('ru-role').value = 'member';
+window.document.getElementById('ru-role').dispatchEvent(new window.Event('change'));
+window.document.getElementById('ru-name').value = 'Dup Test';
+window.document.getElementById('ru-username').value = 'p6mbr'; // already used
+window.document.getElementById('ru-email').value = 'newdup@test.com';
+window.document.getElementById('ru-pass').value = 'longpassword!';
+window.document.getElementById('ru-mem-team').value = p6Team.id;
+const beforeCount = State.get().members.length;
+window.document.getElementById('ru-confirm').click();
+expect('duplicate username rejected (no new member created)',
+  State.get().members.length === beforeCount);
+
+// Close any leftover modal
+Utils && Utils.closeModal && Utils.closeModal();
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);
