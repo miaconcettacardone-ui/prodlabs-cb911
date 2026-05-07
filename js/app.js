@@ -35,7 +35,10 @@
 
 const Router = (() => {
 
-  const VIEWS = ['landing', 'auth', 'wizard', 'app'];
+  // Phase 5: only landing + app remain. Self-signup wizard and the
+  // standalone auth view are gone — landing handles login + first-run
+  // bootstrap, super.js handles user creation in-app.
+  const VIEWS = ['landing', 'app'];
 
   function go(view, opts = {}) {
     if (!VIEWS.includes(view)) view = 'landing';
@@ -62,8 +65,6 @@ const Router = (() => {
 
     // dispatch
     if (view === 'landing') Landing.render();
-    else if (view === 'auth') AuthView.render(opts);
-    else if (view === 'wizard') Wizard.render(opts);
     else if (view === 'app') renderApp();
 
     window.scrollTo(0, 0);
@@ -79,8 +80,12 @@ const Router = (() => {
     // Map the internal session.type to a friendlier label so
     // the topbar reads "Super Admin · Mia C." instead of "super".
     const roleLabel = (t) => t === 'super' ? 'Super Admin' : t === 'manager' ? 'Manager' : 'Member';
+    const badgeClass = session.type === 'super' ? 'badge-super'
+                     : session.type === 'manager' ? 'badge-mgr'
+                     : 'badge-mem';
 
-    // build app shell once per render
+    // Phase 5 topbar: black bg, 2px red stripe (in app.css), email
+    // visible next to display name (per decision #9).
     root.innerHTML = `
       <div class="topbar">
         <div class="brand">
@@ -92,8 +97,11 @@ const Router = (() => {
         </div>
         <div class="topbar-spacer"></div>
         <div class="tbu">
-          <span class="badge ${session.type==='super'?'badge-super':session.type==='manager'?'badge-mgr':'badge-mem'}">${roleLabel(session.type)}</span>
-          <span class="tbu-name">${escape(session.user.displayName)}</span>
+          <span class="badge ${badgeClass}">${roleLabel(session.type)}</span>
+          <div class="tbu-id">
+            <span class="tbu-name">${escape(session.user.displayName)}</span>
+            <span class="tbu-email">${escape(session.user.email)}</span>
+          </div>
         </div>
         <div class="tb-actions">
           <button class="topbar-btn" id="tb-logout">${Utils.icon('logout',14)} Sign Out</button>
@@ -131,6 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // listen for refresh events from anywhere
 document.addEventListener('app:refresh', () => {
-  const active = document.querySelector('#landing.active, #auth.active, #wizard.active, #app.active');
+  const active = document.querySelector('#landing.active, #app.active');
   if (active) Router.go(active.id);
 });

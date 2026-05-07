@@ -80,6 +80,7 @@ const State = (() => {
       config: {
         superAdminApprovers: [], // emails of super admins who can approve new super admins
         bootstrapped: false,     // becomes true after the very first super admin is created
+        departments: [],         // Phase 5: admin-added departments (merged with LIBRARY.departments)
       }
     };
   }
@@ -404,6 +405,47 @@ const State = (() => {
     return s.notifications[i] || null;
   }
 
+  // ---- Phase 5: departments + first-run --------------------
+  // The pre-seeded list lives in LIBRARY.departments (read-only).
+  // Anything an admin types via the "Other" escape hatch goes into
+  // state.config.departments. getDepartments() returns the merged
+  // view that the UI dropdowns should render.
+  function addDepartment(name) {
+    const clean = (name || '').trim();
+    if (!clean) return;
+    const s = load();
+    s.config.departments = s.config.departments || [];
+    // Idempotent — case-insensitive dupe check across both lists
+    const seen = new Set([
+      ...(LIBRARY.departments || []),
+      ...s.config.departments,
+    ].map(d => d.toLowerCase()));
+    if (seen.has(clean.toLowerCase())) return;
+    s.config.departments.push(clean);
+    save();
+  }
+
+  function getDepartments() {
+    const s = load();
+    const seeded = LIBRARY.departments || [];
+    const added = s.config.departments || [];
+    // De-dupe defensively (case-insensitive); preserve seeded order first.
+    const out = [...seeded];
+    const lower = new Set(seeded.map(d => d.toLowerCase()));
+    for (const d of added) {
+      if (!lower.has(d.toLowerCase())) { out.push(d); lower.add(d.toLowerCase()); }
+    }
+    return out;
+  }
+
+  // Phase 5 first-run check. True when no super admin exists AND the
+  // platform was never bootstrapped — drives landing.js's "create
+  // platform owner" form. After bootstrap, never returns true again.
+  function isFirstRun() {
+    const s = load();
+    return (s.superAdmins || []).length === 0 && s.config.bootstrapped !== true;
+  }
+
   // ---- dev backdoor -----------------------------------------
   // Pre-seed a known super admin so devs (and Mia) can bypass
   // the full signup/approval flow when iterating on the prototype.
@@ -415,16 +457,21 @@ const State = (() => {
   function bootstrapDev() {
     const s = load();
     const email = 'devadmin@prodlabs.dev';
+    const username = 'devadmin';
     const password = 'd3ve1opment!';
     const existing = s.superAdmins.find(u => u.email.toLowerCase() === email);
     if (!existing) {
       s.superAdmins.push({
         email,
+        username,
         displayName: 'Dev Admin',
         password,
         approvedBy: '__bootstrap__',
         createdAt: Date.now(),
       });
+    } else if (!existing.username) {
+      // Backfill username on legacy bootstrap records (Phase 4 → 5).
+      existing.username = username;
     }
     // Mark platform as bootstrapped so first-run logic doesn't
     // fire again later. Default the company name if blank.
@@ -436,7 +483,7 @@ const State = (() => {
       s.config.superAdminApprovers = [...(s.config.superAdminApprovers || []), email];
     }
     save();
-    return { email, password };
+    return { email, username, password };
   }
 
   // public API
@@ -450,6 +497,7 @@ const State = (() => {
     updateCompany, updateConfig, updateUser, deleteUser,
     addPending, updatePending, pendingForUser,
     addNotification, notificationsForUser, markNotificationRead,
+    addDepartment, getDepartments, isFirstRun,
     bootstrapDev,
   };
 

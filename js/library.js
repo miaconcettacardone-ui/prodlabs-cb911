@@ -32,51 +32,58 @@
 
 const LIBRARY = {
 
-  // Departments (shown as a dropdown)
+  // Departments — Phase 5 pre-seed (handoff §CB911 vocabulary).
+  // Admins can extend this via State.addDepartment() ("Other" path
+  // in the Add Manager flow).
   departments: [
-    'Sales','Alerts','Production','Client Relations','Finance',
-    'Setup','Development','Operations','Marketing','Support',
-    'HR','Legal','QA','Risk',
+    'Alerts',
+    'Disputes & Operations',
+    'Sales',
+    'Reporting & Analytics',
+    'Dev & Engineering',
+    'Finance',
+    'Customer Success',
   ],
 
-  // Work units (pickable; can also add custom)
+  // Work units — CB911-flavored. Teams pick which apply to them
+  // and can also add custom ones via the settings panel.
   workUnits: [
-    {id:'chargeback_case',  label:'Chargeback Case',  hint:'Disputes worked'},
-    {id:'representment',    label:'Representment',    hint:'Rebuttals submitted'},
-    {id:'alert_resolved',   label:'Alert Resolved',   hint:'Ethoca/RDR/CDRN'},
-    {id:'sales_call',       label:'Sales Call',       hint:'Outbound/inbound'},
-    {id:'demo_booked',      label:'Demo Booked',      hint:'Sales demos scheduled'},
-    {id:'deal_closed',      label:'Deal Closed',      hint:'Revenue wins'},
-    {id:'ticket_resolved',  label:'Support Ticket',   hint:'Issues resolved'},
-    {id:'client_onboarded', label:'Client Onboarded', hint:'New accounts'},
-    {id:'deployment',       label:'Deployment',       hint:'Code shipped'},
-    {id:'pr_merged',        label:'PR Merged',        hint:'Pull requests done'},
-    {id:'qa_review',        label:'QA Review',        hint:'Quality checks'},
-    {id:'report_delivered', label:'Report Delivered', hint:'Client reports'},
-    {id:'invoice_processed',label:'Invoice Processed',hint:'Finance task'},
-    {id:'meeting_held',     label:'Client Meeting',   hint:'Check-ins/reviews'},
+    { id: 'alert_handled',     label: 'Alert Handled',       hint: 'Verifi/Ethoca alerts processed' },
+    { id: 'dispute_filed',     label: 'Dispute Filed',       hint: 'Chargeback responses submitted' },
+    { id: 'case_resolved',     label: 'Case Resolved',       hint: 'Cases closed (won/lost/settled)' },
+    { id: 'lead_contacted',    label: 'Lead Contacted',      hint: 'Sales outreach' },
+    { id: 'deal_closed',       label: 'Deal Closed',         hint: 'New client signed' },
+    { id: 'report_built',      label: 'Report Built',        hint: 'Client report delivered' },
+    { id: 'ticket_closed',     label: 'Ticket Closed',       hint: 'Engineering ticket completed' },
+    { id: 'invoice_sent',      label: 'Invoice Sent',        hint: 'Billing record created' },
+    { id: 'payment_processed', label: 'Payment Processed',   hint: 'Payment recorded/applied' },
+    { id: 'check_in',          label: 'Client Check-in',     hint: 'CS touchpoint completed' },
+    { id: 'escalation',        label: 'Escalation Resolved', hint: 'Client escalation closed' },
   ],
 
-  // Fields tracked per record
+  // Fields tracked per record. `outcome` enum updated for CB911
+  // dispute lifecycle (Won/Lost/Pending/Settled/Refunded/No Action).
   fields: [
-    {id:'amount',       label:'Dollar Amount',     hint:'$ value',          type:'number'},
-    {id:'outcome',      label:'Outcome',           hint:'Win/Loss/Pending', type:'enum', options:['Win','Loss','Pending']},
-    {id:'reason_code',  label:'Reason Code',       hint:'10.4, 4853, etc',  type:'text'},
-    {id:'card_network', label:'Card Network',      hint:'Visa/MC/Amex',     type:'enum', options:['Visa','Mastercard','Amex','Discover','Other']},
-    {id:'merchant',     label:'Merchant / Client', hint:'Which client',     type:'text'},
-    {id:'case_id',      label:'Case / Record ID',  hint:'Unique identifier',type:'text'},
-    {id:'duration',     label:'Duration (min)',    hint:'Time spent',       type:'number'},
-    {id:'priority',     label:'Priority',          hint:'High/Med/Low',     type:'enum', options:['High','Medium','Low']},
-    {id:'status',       label:'Status',            hint:'Open/InProg/Done', type:'enum', options:['Open','In Progress','Done']},
-    {id:'source',       label:'Source',            hint:'Where from',       type:'text'},
-    {id:'notes',        label:'Notes',             hint:'Free text',        type:'text'},
+    {id:'amount',       label:'Dollar Amount',     hint:'$ value',                 type:'number'},
+    {id:'outcome',      label:'Outcome',           hint:'Dispute outcome',         type:'enum',
+      options:['Won','Lost','Pending','Settled','Refunded','No Action']},
+    {id:'reason_code',  label:'Reason Code',       hint:'e.g. 4855, 10.4',         type:'text'},
+    {id:'card_network', label:'Card Network',      hint:'Card brand',              type:'enum',
+      options:['Visa','Mastercard','Amex','Discover','Other']},
+    {id:'merchant',     label:'Merchant',          hint:'Merchant or client name', type:'text'},
+    {id:'case_id',      label:'Case / Record ID',  hint:'Unique identifier',       type:'text'},
+    {id:'duration',     label:'Duration (min)',    hint:'Time spent',              type:'number'},
+    {id:'priority',     label:'Priority',          hint:'High/Med/Low',            type:'enum',
+      options:['High','Medium','Low']},
+    {id:'status',       label:'Status',            hint:'Open/InProg/Done',        type:'enum',
+      options:['Open','In Progress','Done']},
+    {id:'source',       label:'Source',            hint:'Where from',              type:'text'},
+    {id:'notes',        label:'Notes',             hint:'Free text',               type:'text'},
   ],
 
-  // Default role suggestions
+  // Default role suggestions per team.
   roles: [
-    'Analyst','Senior Analyst','Team Lead','Specialist','Coordinator',
-    'Representative','Sr. Rep','Account Manager','Developer','QA Engineer',
-    'Manager','Director',
+    'Analyst', 'Senior Analyst', 'Coordinator', 'Specialist', 'Lead', 'Manager',
   ],
 
   // Helper: lookup a field def

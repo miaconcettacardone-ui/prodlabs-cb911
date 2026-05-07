@@ -7,46 +7,64 @@
  * ============================================================ */
 
 :root {
-  /* CB911 brand palette */
-  --cb-dark:        #0b1220;
-  --cb-dark-2:      #111a2e;
-  --cb-dark-3:      #1a2440;
-  --cb-red:         #e63946;
-  --cb-red-dk:      #c92836;
-  --cb-red-lt:      #fef1f2;
-  --cb-red-mid:     #ffd4d7;
-  --cb-orange:      #ff6b3d;
-  --cb-gold:        #f5a623;
+  /* ------------------------------------------------------------
+   *  Phase 5 palette (LOCKED — see phase5-handoff.md §design tokens)
+   *  Topbar = black with 2px red stripe. Active tabs = burgundy.
+   *  Primary buttons = red. Burgundy is for accents/badges.
+   * ------------------------------------------------------------ */
 
-  /* surfaces */
-  --bg:             #f7f9fc;
-  --sur:            #ffffff;
-  --s2:             #eef2f8;
-  --s3:             #e0e6ef;
-  --bor:            #e0e6ef;
-  --bor-strong:     #cbd3e0;
+  /* Brand */
+  --cb-red:        #E8192C;  /* primary action, brand */
+  --cb-red-dk:     #c0121f;  /* hover state on primary */
+  --cb-red-lt:     #fff0f1;  /* tinted backgrounds, alerts */
+  --cb-red-mid:    #ffd6d9;  /* borders on tinted areas */
 
-  /* text */
-  --ink:            #0b1220;
-  --i2:             #4a5568;
-  --i3:             #8a94a6;
-  --i4:             #b0b8c7;
+  --cb-burgundy:   #8B1E2D;  /* secondary accent, active states, badges */
+  --cb-burgundy-lt:#f5e6e9;  /* tinted bg for burgundy zones */
+  --cb-burgundy-md:#d9b3ba;  /* borders */
 
-  /* status */
-  --gr:             #10b981;
-  --grd:            #d1fae5;
-  --grl:            #ecfdf5;
-  --am:             #f59e0b;
-  --amd:            #fef3c7;
-  --aml:            #fffbeb;
-  --bl:             #2563eb;
-  --bld:            #dbeafe;
-  --bll:            #eff6ff;
-  --pu:             #7c3aed;
-  --pud:            #ede9fe;
-  --pul:            #f5f3ff;
+  /* Structure */
+  --ink:           #000000;  /* topbar bg, primary text */
+  --ink-2:         #1a1a1a;  /* secondary dark surfaces */
+  --ink-3:         #2a2a2a;  /* tertiary dark */
+  --i2:            #4c4469;  /* secondary text (kept for backward compat) */
+  --i3:            #8b7db8;  /* tertiary/muted text (kept for backward compat) */
+  --mut:           #6b6b78;  /* preferred muted text token going forward */
 
-  /* radii */
+  --bg:            #fdf8f8;  /* page bg, very pale red-tinted neutral */
+  --sur:           #ffffff;  /* card/surface bg */
+  --s2:            #faeeef;  /* secondary surface (e.g. hover row) */
+  --bor:           #ead8da;  /* default border */
+  --bor-strong:    #d6b8bc;  /* emphasized border */
+
+  /* Status */
+  --gr:            #16a34a;  /* success */
+  --grd:           #dcfce7;
+  --am:            #d97706;  /* warning */
+  --amd:           #fef3c7;
+  --bl:            #2563eb;  /* info */
+  --bld:           #dbeafe;
+
+  /* ------------------------------------------------------------
+   *  Backward-compat aliases — still referenced by app.css and
+   *  some inline styles. Item 3 (app.css overhaul) will purge most
+   *  of these. Keep them until then so unrelated rules don't break.
+   * ------------------------------------------------------------ */
+  --cb-dark:       #000000;   /* topbar bg legacy alias */
+  --cb-dark-2:     #1a1a1a;
+  --cb-dark-3:     #2a2a2a;
+  --cb-orange:     #ff6b3d;   /* legacy chart color */
+  --cb-gold:       #f5a623;   /* legacy chart/badge accent */
+  --s3:            #e0d0d2;
+  --i4:            #b0a0a8;
+  --grl:           #ecfdf5;
+  --aml:           #fffbeb;
+  --bll:           #eff6ff;
+  --pu:            #8B1E2D;   /* legacy purple → remap to burgundy */
+  --pud:           #f5e6e9;
+  --pul:           #f9eef0;
+
+  /* Radii (non-color, unchanged) */
   --r-sm:           6px;
   --r:              10px;
   --r-md:           12px;
@@ -54,19 +72,20 @@
   --r-xl:           20px;
   --r-pill:         100px;
 
-  /* fonts */
+  /* Fonts (non-color, unchanged) */
   --font-display:   'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:      'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-sans:      var(--font-body);  /* alias for Phase 5 spec */
 
-  /* shadows */
-  --sh-sm:  0 1px 2px rgba(11,18,32,.04), 0 1px 3px rgba(11,18,32,.06);
-  --sh:     0 4px 6px -1px rgba(11,18,32,.08), 0 2px 4px -2px rgba(11,18,32,.06);
-  --sh-md:  0 10px 15px -3px rgba(11,18,32,.1), 0 4px 6px -4px rgba(11,18,32,.08);
-  --sh-lg:  0 20px 25px -5px rgba(11,18,32,.12), 0 8px 10px -6px rgba(11,18,32,.08);
-  --sh-xl:  0 25px 50px -12px rgba(11,18,32,.25);
+  /* Shadows (non-color, unchanged) */
+  --sh-sm:  0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+  --sh:     0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06);
+  --sh-md:  0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.08);
+  --sh-lg:  0 20px 25px -5px rgba(0,0,0,.12), 0 8px 10px -6px rgba(0,0,0,.08);
+  --sh-xl:  0 25px 50px -12px rgba(0,0,0,.25);
 
-  /* motion */
+  /* Motion (non-color, unchanged) */
   --ease:           cubic-bezier(.4,0,.2,1);
   --t-fast:         120ms;
   --t:              200ms;
@@ -173,8 +192,8 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height
   text-transform: uppercase; font-family: var(--font-display);
 }
 .badge-super  { background: var(--cb-red); color: #fff; }
-.badge-mgr    { background: var(--cb-gold); color: #fff; }
-.badge-mem    { background: rgba(255,255,255,.18); color: #fff; }
+.badge-mgr    { background: var(--cb-burgundy); color: #fff; }
+.badge-mem    { background: var(--cb-burgundy-lt); color: var(--cb-burgundy); }
 .badge-pending{ background: var(--amd); color: #78350f; }
 .badge-approved{background: var(--grd); color: #065f46; }
 .badge-denied { background: var(--cb-red-lt); color: var(--cb-red-dk); }
@@ -184,12 +203,13 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height
   font-size: 11px; font-weight: 600; line-height: 1.4;
 }
 .pill-r { background: var(--cb-red-lt); color: var(--cb-red-dk); }
+.pill-burg { background: var(--cb-burgundy-lt); color: var(--cb-burgundy); }
 .pill-g { background: var(--grd); color: #065f46; }
 .pill-b { background: var(--bld); color: #1e3a8a; }
 .pill-a { background: var(--amd); color: #78350f; }
-.pill-p { background: var(--pud); color: #5b21b6; }
+.pill-p { background: var(--cb-burgundy-lt); color: var(--cb-burgundy); } /* legacy alias → burgundy */
 .pill-y { background: #fef9c3; color: #713f12; }
-.pill-gray{ background: var(--s2); color: var(--i2); }
+.pill-gray{ background: var(--s2); color: var(--mut); }
 
 /* ----- CARDS ----- */
 .card {

@@ -113,9 +113,15 @@ const CONFIG = {
     csvImport:               true,   // bulk paste-import on Activity tab
     editRecords:             true,   // pencil-icon edit buttons
     deleteRecords:           true,   // trash-icon delete buttons (manager)
-    memberSelfDelete:        false,  // can members delete their own records?
-                                     // off by default — see SPEC.md #8
+    memberSelfDelete:        true,   // members can delete their own records (Phase 5)
     superCrossTeamReporting: true,   // company-wide analytics for super admins
+
+    // Phase 5 additions
+    selfSignup:              false,  // landing/AuthView no longer expose signup;
+                                     // flip true to re-enable wizard for Laravel
+    approvalQueue:           false,  // Inbox approvals UI hidden; data layer kept
+    showEmailInRoster:       true,   // decision #9 — email visible everywhere
+    multiSuperAdmin:         true,   // decision #4 — equal super admins
   },
 
   // ----- Validation -----------------------------------------

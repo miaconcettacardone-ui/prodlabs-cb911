@@ -1,5 +1,11 @@
 # PERMISSIONS.md — ProdLabs Permissions & Authorization
 
+> **Phase 5 status (May 2026):** Self-signup and the approval queue are off
+> in the current prototype. Practical impact on this document:
+> - **§1 Member visibility:** members see display name **and email** of teammates (decision #9 in `phase5-handoff.md`). The Phase 4 description below still applies, just with email visibility added.
+> - **§2 Approval permissions:** ignore for now. Super admins create users directly via in-app modals; there is no approval queue. The data-layer permission rules below remain valid for the Laravel rebuild.
+> - **§4 Super admin powers:** any super admin can create/edit/delete any other user (managers, members, super admins) — no owner hierarchy (decision #4). Multi-super-admin equality is the model.
+
 This document specifies the authorization model: who can do what, when, and under which conditions. Together with [SPEC.md](./SPEC.md) (what the app does) and [DATA_MODEL.md](./DATA_MODEL.md) (the data it acts on), this is the third pillar of the dev team's onboarding.
 
 The dev team should implement these rules **server-side** with defense-in-depth client-side checks. The prototype's client-side gating is a UX nicety, not a security boundary.

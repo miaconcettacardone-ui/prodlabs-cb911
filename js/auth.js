@@ -41,23 +41,33 @@
 const Auth = (() => {
 
   // ---- LOGIN ------------------------------------------------
-  function tryLogin(email, password) {
-    const norm = (email||'').trim().toLowerCase();
+  // Phase 5: login is by USERNAME, not email. Email is still stored
+  // on every user record (for password reset / future Laravel auth)
+  // but the username is what users type at the login form.
+  function tryLogin(username, password) {
+    const norm = (username||'').trim().toLowerCase();
     const pwd  = password || '';
-    if (!norm || !pwd) return { ok: false, error: 'Email and password required' };
+    if (!norm || !pwd) return { ok: false, error: 'Username and password required' };
 
-    const found = State.findUserByEmail(norm);
+    const s = State.get();
+    const matchUser = (u) => (u.username || '').toLowerCase() === norm;
+    let found = null;
+    const sa = s.superAdmins.find(matchUser); if (sa) found = { type: 'super',   user: sa };
+    if (!found) { const mg = s.managers.find(matchUser); if (mg) found = { type: 'manager', user: mg }; }
+    if (!found) { const mb = s.members.find(matchUser);  if (mb) found = { type: 'member',  user: mb }; }
+
     if (!found) {
-      // Surface "pending approval" with friendlier message
-      const pending = State.get().pending.find(p =>
-        p.email.toLowerCase()===norm && p.status==='pending'
+      // Self-signup is disabled in Phase 5, so the "pending approval"
+      // path is unreachable from any current view. We still surface a
+      // clear message in case Laravel re-enables the flow later and
+      // someone hits this code path.
+      const pending = s.pending.find(p =>
+        ((p.username && p.username.toLowerCase() === norm) ||
+         (p.email && p.email.toLowerCase() === norm))
+        && p.status === 'pending'
       );
       if (pending) return { ok: false, error: 'Your account is pending approval. Check back later.' };
-      const denied = State.get().pending.find(p =>
-        p.email.toLowerCase()===norm && p.status==='denied'
-      );
-      if (denied) return { ok: false, error: 'Your access request was denied.' };
-      return { ok: false, error: 'No account found with that email.' };
+      return { ok: false, error: 'No account found with that username.' };
     }
     if (found.user.password !== pwd) {
       return { ok: false, error: 'Incorrect password.' };
@@ -76,10 +86,27 @@ const Auth = (() => {
            State.get().superAdmins.length > 0;
   }
 
+  // Phase 5: usernames are the login key, so we need a unique-check
+  // that mirrors State.emailInUse. Case-insensitive, scans all three
+  // user lists plus pending requests (in case Laravel re-enables them).
+  function usernameInUse(username) {
+    const s = State.get();
+    const norm = (username || '').trim().toLowerCase();
+    if (!norm) return false;
+    const hit = (u) => (u.username || '').toLowerCase() === norm;
+    if (s.superAdmins.some(hit)) return true;
+    if (s.managers.some(hit))    return true;
+    if (s.members.some(hit))     return true;
+    if (s.pending.some(p => p.status === 'pending' && (p.username || '').toLowerCase() === norm)) return true;
+    return false;
+  }
+
   // ---- SIGNUP REQUESTS --------------------------------------
+  // Reserved for Laravel — not surfaced in Phase 5 UI.
+  // Self-signup is gated by CONFIG.FEATURES.selfSignup (false in P5).
+  // Code is kept intact so the Laravel team can re-enable the flow
+  // without rebuilding the data model.
   // All return { ok, autoApproved?, error? }
-  // If autoApproved=true, account exists & user can sign in immediately.
-  // If autoApproved=false, request is pending.
 
   function requestSuperAdmin({ email, displayName, password, companyName }) {
     if (!email || !displayName || !password) return { ok:false, error:'All fields required' };
@@ -145,6 +172,8 @@ const Auth = (() => {
   }
 
   // ---- APPROVAL DECISIONS -----------------------------------
+  // Reserved for Laravel — not surfaced in Phase 5 UI (no approval
+  // queue). Phase 5 admins create users directly via super.js modals.
   function approve(pendingId, decidedByEmail) {
     const s = State.get();
     const p = s.pending.find(x => x.id === pendingId);
@@ -257,7 +286,7 @@ const Auth = (() => {
   }
 
   return {
-    tryLogin, logout, isBootstrapped,
+    tryLogin, logout, isBootstrapped, usernameInUse,
     requestSuperAdmin, requestManager, requestMember,
     approve, deny, canApprove,
   };

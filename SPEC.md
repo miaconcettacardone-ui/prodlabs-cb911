@@ -1,5 +1,22 @@
 # SPEC.md — ProdLabs Feature Specification
 
+> **Phase 5 status (May 2026):** The prototype no longer exposes self-signup or
+> the approval queue. New flow:
+>   1. **First run:** the landing page shows a "create platform owner" form. Submitting it creates the first super admin directly.
+>   2. **Daily:** users sign in with **username + password** (email is stored on every record but is no longer the login key).
+>   3. **Super admins create managers and members directly** via in-app modals (no approval queue surfaced).
+>   4. **Managers configure their team** via the Settings tab on the manager dashboard (no multi-step wizard).
+>   5. **Members log work and see their own stats.**
+>
+> Sections 3 (Onboarding) and 4 (Approval workflow) below describe the **legacy
+> Phase 4 design**. The data-layer plumbing for approvals (`state.pending`,
+> `Auth.requestSuperAdmin/Manager/Member`, `Auth.approve/deny`) is intentionally
+> kept in code so the Laravel rebuild can re-enable signup. In Phase 5 these
+> code paths are not reachable from any view; the relevant feature flags are
+> `CONFIG.FEATURES.selfSignup = false` and `CONFIG.FEATURES.approvalQueue = false`.
+>
+> See `phase5-handoff.md` for the full rationale.
+
 This document specifies what the production app should do. The prototype in this repo is a working reference implementation — when behavior in this doc and the prototype disagree, **this doc wins** (the prototype may have rough edges; this doc is what we want).
 
 ---
