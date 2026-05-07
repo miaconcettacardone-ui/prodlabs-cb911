@@ -1,5 +1,5 @@
 /* ============================================================
- *  smoke-p6.js — Phase 6 (part 1) smoke test
+ *  smoke-p6.js — Phase 6 (parts 1, 2, 3) smoke test
  * ============================================================
  *
  *  Run with:  node smoke-p6.js
@@ -24,12 +24,14 @@
  *       admin Users tab (role picker, manager team flow with new-team
  *       sub-flow + new-department, member flow with team+role,
  *       super admin flow, validation rejecting duplicates)
+ *   12. Phase 6 part 3: team-setup wizard from Settings tab
+ *       (6-step flow, custom add at each picker step, cancel-mid-flow
+ *       doesn't persist, manager mode pre-fills own team)
  *
- *  NOT covered (Phase 6 part 3+):
+ *  NOT covered (Phase 6 part 4+):
  *    - Real Dashboard tab implementation (currently stubbed)
  *    - Real History/PDF reports (currently stubbed)
  *    - Real top-level Import refactor (currently a relabel of Log Work)
- *    - Wizard-walkthrough inside Settings
  *    - Manager empty-state CTA when team isn't configured
  *
  *  When those land, expand this test accordingly.
@@ -80,6 +82,7 @@ const bundle = scriptTags.map(read).join('\n;\n') + `
   window.State   = State;
   window.Auth    = Auth;
   window.Utils   = Utils;
+  window.WizardSettings = WizardSettings;
   window.Landing = Landing;
   window.Router  = Router;
 `;
@@ -88,7 +91,7 @@ s.textContent = bundle;
 window.document.head.appendChild(s);
 
 // Pull globals out for assertions
-const { State, Auth, CONFIG, LIBRARY, Landing, Router, Utils } = window;
+const { State, Auth, CONFIG, LIBRARY, Landing, Router, Utils, WizardSettings } = window;
 
 // ----- 2. isFirstRun -----
 console.log('\n[2] State.isFirstRun()');
@@ -400,6 +403,153 @@ expect('duplicate username rejected (no new member created)',
 
 // Close any leftover modal
 Utils && Utils.closeModal && Utils.closeModal();
+
+// ----- 12. Phase 6 part 3: team-setup wizard from Settings -----
+console.log('\n[12] Team-setup wizard (from Settings tab)');
+
+// Reset and set up admin context
+State.reset();
+State.bootstrapDev();
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+
+// Navigate to Settings tab
+const settingsTab = window.document.querySelector('#app .tabs .tab[data-tab="settings"]');
+settingsTab && settingsTab.click();
+expect('Settings tab shows wizard launcher',
+  !!window.document.getElementById('s-wizard-launch'));
+expect('Settings tab has team selector',
+  !!window.document.getElementById('s-wizard-team'));
+
+// Launch the wizard for a NEW team (default selection: __new__)
+window.document.getElementById('s-wizard-launch').click();
+expect('Wizard modal opens', !!window.document.querySelector('.wiz-modal'));
+expect('Wizard step 1 has name input', !!window.document.getElementById('w-name'));
+expect('Wizard step 1 has dept dropdown', !!window.document.getElementById('w-dept'));
+expect('Wizard stepper shows 6 dots',
+  window.document.querySelectorAll('.wiz-stepper .wiz-dot').length === 6);
+expect('Wizard step 1 is active',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '1');
+
+// Fill in step 1: team name + department (using "Other" path for new dept)
+window.document.getElementById('w-name').value = 'Wizard Test Team';
+const wizDeptSel = window.document.getElementById('w-dept');
+wizDeptSel.value = '__other__';
+wizDeptSel.dispatchEvent(new window.Event('change'));
+expect('Selecting Other reveals new-dept input',
+  window.document.getElementById('w-dept-other-row').style.display === '');
+window.document.getElementById('w-dept-other').value = 'Wizard Department';
+
+// Click Continue → step 2 (work units)
+window.document.getElementById('wiz-next').click();
+expect('Advanced to step 2',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '2');
+expect('Step 2 shows work-unit picker',
+  window.document.querySelectorAll('[data-pick-wu]').length >= 5);
+
+// Pick a couple of work units
+const wuPicks = window.document.querySelectorAll('[data-pick-wu]');
+wuPicks[0].checked = true; wuPicks[0].dispatchEvent(new window.Event('change'));
+wuPicks[1].checked = true; wuPicks[1].dispatchEvent(new window.Event('change'));
+
+// Add a custom work unit
+window.document.getElementById('w-custom-wu').value = 'My Custom Action';
+window.document.getElementById('w-custom-wu-add').click();
+expect('Custom work unit added (re-rendered with extra pick)',
+  window.document.querySelectorAll('.wp-custom').length >= 1);
+
+// Continue → step 3 (fields)
+window.document.getElementById('wiz-next').click();
+expect('Advanced to step 3 (fields)',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '3');
+const fldPicks = window.document.querySelectorAll('[data-pick-fld]');
+expect('Step 3 shows field picker', fldPicks.length >= 5);
+fldPicks[0].checked = true; fldPicks[0].dispatchEvent(new window.Event('change'));
+
+// Continue → step 4 (roles)
+window.document.getElementById('wiz-next').click();
+expect('Advanced to step 4 (roles)',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '4');
+const rolePicks = window.document.querySelectorAll('[data-pick-role]');
+expect('Step 4 shows role picker', rolePicks.length >= 3);
+rolePicks[0].checked = true; rolePicks[0].dispatchEvent(new window.Event('change'));
+rolePicks[1].checked = true; rolePicks[1].dispatchEvent(new window.Event('change'));
+
+// Continue → step 5 (goals)
+window.document.getElementById('wiz-next').click();
+expect('Advanced to step 5 (goals)',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '5');
+const goalInputs = window.document.querySelectorAll('[data-goal]');
+expect('Step 5 shows goal inputs (one per work unit)', goalInputs.length === 3);
+goalInputs[0].value = '10';
+goalInputs[0].dispatchEvent(new window.Event('change'));
+
+// Continue → step 6 (review)
+window.document.getElementById('wiz-next').click();
+expect('Advanced to step 6 (review)',
+  window.document.querySelector('.wiz-stepper .wiz-dot.active').textContent.trim() === '6');
+expect('Review screen shows team name',
+  /Wizard Test Team/.test(window.document.getElementById('wiz-body').textContent));
+expect('Review screen shows new department',
+  /Wizard Department/.test(window.document.getElementById('wiz-body').textContent));
+expect('Save button labelled "Save team"',
+  /Save team/.test(window.document.getElementById('wiz-next').textContent));
+
+// Click Save team → commits to State
+const teamsBefore = State.get().teams.length;
+window.document.getElementById('wiz-next').click();
+expect('Team count incremented',
+  State.get().teams.length === teamsBefore + 1);
+const created = State.get().teams.find(t => t.name === 'Wizard Test Team');
+expect('Team created with name', !!created);
+expect('Team has correct department', created && created.department === 'Wizard Department');
+expect('Team has 3 work units (2 library + 1 custom)',
+  created && created.workUnits.length === 3);
+expect('Team has 1 field', created && created.fields.length === 1);
+expect('Team has 2 roles', created && created.roles.length === 2);
+expect('Team has 1 active goal',
+  created && Object.values(created.goals).filter(v => v > 0).length === 1);
+expect('Custom work unit has label stored',
+  created && Object.values(created.workUnitLabels).includes('My Custom Action'));
+expect('New department persisted via addDepartment',
+  State.getDepartments().includes('Wizard Department'));
+
+// Cancel-mid-flow does NOT persist
+const teamsBeforeCancel = State.get().teams.length;
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="settings"]').click();
+window.document.getElementById('s-wizard-launch').click();
+window.document.getElementById('w-name').value = 'Cancelled Team';
+window.document.getElementById('wiz-next').click(); // step 2
+window.document.getElementById('wiz-cancel').click();
+expect('Cancelling mid-flow does not create team',
+  State.get().teams.length === teamsBeforeCancel);
+expect('No "Cancelled Team" persisted',
+  !State.get().teams.some(t => t.name === 'Cancelled Team'));
+
+// Manager mode: launch wizard for own team, edit it
+const managerTeam = State.addTeam({
+  name: 'MgrWiz Team', department: 'Alerts',
+  managerEmail: 'mgrwiz@test.com',
+  workUnits: [], workUnitLabels: {},
+  fields: [], roles: [], goals: {},
+});
+State.addManager({
+  email: 'mgrwiz@test.com', username: 'mgrwiz', displayName: 'MgrWiz',
+  password: 'longpassword!', teamId: managerTeam.id, approvedBy: '__test__',
+});
+State.setSession('manager', 'mgrwiz@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="settings"]').click();
+expect('Manager Settings has Run Setup Wizard button',
+  !!window.document.getElementById('ts-wizard-launch'));
+window.document.getElementById('ts-wizard-launch').click();
+expect('Manager wizard pre-fills team name',
+  window.document.getElementById('w-name').value === 'MgrWiz Team');
+
+// Close cleanly
+Utils.closeModal();
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -842,6 +842,7 @@ const ManagerView = (() => {
     main.innerHTML = `
       <div class="page-header">
         <div><h2>Team Settings</h2><div class="ph-sub">Configure ${escape(team.name)}</div></div>
+        <button class="btn btn-primary btn-sm" id="ts-wizard-launch">${Utils.icon('shieldStar',12)} ${team.workUnits.length ? 'Re-run Setup Wizard' : 'Run Setup Wizard'}</button>
       </div>
 
       <div class="card">
@@ -915,6 +916,13 @@ const ManagerView = (() => {
       State.save();
       Utils.toast('Saved','good');
       Utils.refresh();
+    };
+    document.getElementById('ts-wizard-launch').onclick = () => {
+      WizardSettings.open({
+        mode: 'manager',
+        teamId: team.id,
+        onClose: (savedId) => { if (savedId) Utils.refresh(); }
+      });
     };
   }
 

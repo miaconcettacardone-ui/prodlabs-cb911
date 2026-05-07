@@ -860,6 +860,24 @@ const SuperView = (() => {
       </div>
 
       <div class="card">
+        <div class="card-head"><span class="card-title">Team Setup</span></div>
+        <div class="card-body">
+          <p class="helper" style="margin-bottom:1rem">
+            Run the team-setup wizard to configure work units, fields, roles, and goals for any team.
+            ${s.teams.length === 0 ? 'Get started by creating your first team.' : ''}
+          </p>
+          <div class="form-row">
+            <label class="label">Team to configure</label>
+            <select id="s-wizard-team">
+              <option value="__new__">+ Create a new team</option>
+              ${s.teams.map(t => `<option value="${escape(t.id)}">${escape(t.name)}${t.department?' — '+escape(t.department):''}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" id="s-wizard-launch">${Utils.icon('shieldStar',12)} Launch Setup Wizard</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><span class="card-title">Danger Zone</span></div>
         <div class="card-body">
           <p class="helper" style="margin-bottom:1rem">Reset everything — clears all teams, members, records, and settings. Only use this in the prototype to start over.</p>
@@ -871,6 +889,14 @@ const SuperView = (() => {
       State.updateCompany({ name: document.getElementById('s-company').value.trim() });
       Utils.toast('Saved', 'good');
       render(session);
+    };
+    document.getElementById('s-wizard-launch').onclick = () => {
+      const sel = document.getElementById('s-wizard-team').value;
+      WizardSettings.open({
+        mode: 'admin',
+        teamId: sel === '__new__' ? null : sel,
+        onClose: (savedId) => { if (savedId) render(session); }
+      });
     };
     document.getElementById('s-reset').onclick = () => {
       if (!Utils.confirm('Erase ALL data — teams, members, records, everything?')) return;
