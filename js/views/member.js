@@ -97,10 +97,32 @@ const MemberView = (() => {
   function renderOverview(main, session) {
     const team = session.team;
     const myEmail = session.user.email.toLowerCase();
-    const myRecords = State.recordsOfTeam(team.id).filter(r => r.memberEmail.toLowerCase() === myEmail);
+    const allRecords = State.recordsOfTeam(team.id);
+    const allMembers = State.membersOfTeam(team.id);
+    const myRecords = allRecords.filter(r => r.memberEmail.toLowerCase() === myEmail);
     const today = Utils.todayISO();
     const todayRecs = myRecords.filter(r => r.date === today);
+    const periods = Analytics.periodCounts(myRecords, today);
     const goalsActive = Analytics.activeGoals(team);
+
+    // Phase 6 part 5: rank + team-comparison context.
+    // Compute "your rank this week" + how I'm tracking vs team avg.
+    const weekDays = Analytics.lastNDays(7, today);
+    const myWeek = myRecords.filter(r => weekDays.includes(r.date)).length;
+    const teamWeekTotal = allRecords.filter(r => weekDays.includes(r.date)).length;
+    const teamAvgWeek = allMembers.length > 0
+      ? Math.round(teamWeekTotal / allMembers.length)
+      : 0;
+    // Build team leaderboard for this week → find my rank
+    let myRank = null;
+    if (allMembers.length > 1) {
+      const board = Analytics.buildTopByTotal(
+        allMembers,
+        allRecords.filter(r => weekDays.includes(r.date))
+      );
+      const idx = board.findIndex(row => row.email.toLowerCase() === myEmail);
+      if (idx >= 0) myRank = idx + 1;
+    }
 
     main.innerHTML = `
       <div class="page-header">
@@ -110,6 +132,42 @@ const MemberView = (() => {
         </div>
         <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
       </div>
+
+      <div class="metric-grid">
+        ${metric('Today',      periods.today,                   'records logged today',  'r')}
+        ${metric('This Week',  periods.thisWeek,                'week-to-date',          'b')}
+        ${metric('This Month', periods.thisMonth,               'month-to-date',         'g')}
+        ${metric('All Time',   periods.allTime.toLocaleString(),'total records',         'a')}
+      </div>
+
+      ${allMembers.length > 1 ? `
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">${Utils.icon('crown',14)} You vs The Team — This Week</span>
+            <span class="muted text-xs">${weekDays.length}-day window</span>
+          </div>
+          <div class="card-body">
+            <div class="vs-grid">
+              <div class="vs-stat">
+                <div class="vs-label">Your records</div>
+                <div class="vs-num">${myWeek}</div>
+              </div>
+              <div class="vs-stat">
+                <div class="vs-label">Team average</div>
+                <div class="vs-num">${teamAvgWeek}</div>
+              </div>
+              <div class="vs-stat">
+                <div class="vs-label">Your rank</div>
+                <div class="vs-num">
+                  ${myRank
+                    ? `<span class="vs-rank-${myRank===1?'top':myRank<=3?'good':'plain'}">#${myRank}</span> <span class="muted vs-rank-of">of ${allMembers.length}</span>`
+                    : '<span class="muted">—</span>'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       ${goalsActive.length ? `
         <div class="card">

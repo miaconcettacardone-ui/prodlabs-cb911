@@ -1,5 +1,5 @@
 /* ============================================================
- *  smoke-p6.js — Phase 6 (parts 1, 2, 3, 4) smoke test
+ *  smoke-p6.js — Phase 6 (parts 1, 2, 3, 4, 5) smoke test
  * ============================================================
  *
  *  Run with:  node smoke-p6.js
@@ -32,10 +32,13 @@
  *       has both single-record + inline bulk CSV, member Import has
  *       single-record only, super admin Import has team picker, full
  *       end-to-end validate-and-commit on bulk import)
+ *   14. Phase 6 part 5: real Dashboard for all 3 roles
+ *       (admin: dept/team/user filter bar with cascade, 6 metric
+ *       cards, cross-team leaderboard; manager: member filter narrows
+ *       all metrics; member: "you vs team" rank card, hides for
+ *       solo teams)
  *
- *  NOT covered (Phase 6 part 5+):
- *    - Real Dashboard tab implementation (currently stubbed for
- *      configured-team case)
+ *  NOT covered (Phase 6 part 6+):
  *    - Real History/PDF reports (currently stubbed)
  *
  *  When those land, expand this test accordingly.
@@ -170,8 +173,8 @@ try {
   ['dashboard','stats','teams','import','history','users','messages','settings']
     .forEach(key => expect(`super has '${key}' tab`, superTabs.includes(key)));
   // Verify Phase 6 stub renders (Dashboard is the default)
-  expect('super: Dashboard stub renders',
-    /Dashboard coming in Phase 6/.test(window.document.querySelector('#app-main').textContent));
+  expect('super: Dashboard renders (real, with filter bar)',
+    !!window.document.getElementById('df-dept'));
 } catch (e) { bad('super render', e.message); }
 
 // MANAGER: 8 tabs (same IA)
@@ -720,6 +723,165 @@ const beforeBulk = State.get().records.length;
 window.document.getElementById('ci-commit').click();
 expect('Bulk commit added 2 records',
   State.get().records.length === beforeBulk + 2);
+
+// ----- 14. Phase 6 part 5: real Dashboard for all 3 roles -----
+console.log('\n[14] Real Dashboard — admin / manager / member');
+
+// --- Set up: 2 teams across 2 departments, members + records ---
+State.reset();
+State.bootstrapDev();
+const teamA = State.addTeam({
+  name: 'Team Alpha', department: 'Alerts',
+  managerEmail: 'alpha@test.com',
+  workUnits: ['alert_handled'], workUnitLabels: {},
+  fields: [], roles: ['Analyst'], goals: { alert_handled: 5 },
+});
+const teamB = State.addTeam({
+  name: 'Team Bravo', department: 'Sales',
+  managerEmail: 'bravo@test.com',
+  workUnits: ['lead_contacted'], workUnitLabels: {},
+  fields: [], roles: ['Analyst'], goals: { lead_contacted: 10 },
+});
+State.addManager({
+  email: 'alpha@test.com', username: 'alpha', displayName: 'Alpha Manager',
+  password: 'longpassword!', teamId: teamA.id, approvedBy: '__test__',
+});
+State.addManager({
+  email: 'bravo@test.com', username: 'bravo', displayName: 'Bravo Manager',
+  password: 'longpassword!', teamId: teamB.id, approvedBy: '__test__',
+});
+State.addMember({
+  email: 'a1@test.com', username: 'a1', displayName: 'Alpha One',
+  password: 'longpassword!', teamId: teamA.id, role: 'Analyst', approvedBy: '__test__',
+});
+State.addMember({
+  email: 'a2@test.com', username: 'a2', displayName: 'Alpha Two',
+  password: 'longpassword!', teamId: teamA.id, role: 'Analyst', approvedBy: '__test__',
+});
+State.addMember({
+  email: 'b1@test.com', username: 'b1', displayName: 'Bravo One',
+  password: 'longpassword!', teamId: teamB.id, role: 'Analyst', approvedBy: '__test__',
+});
+const todayStr = new Date().toISOString().slice(0, 10);
+// Seed records: Alpha gets 5 today, Bravo gets 2
+for (let i = 0; i < 3; i++) State.addRecord({ teamId: teamA.id, memberEmail: 'a1@test.com', date: todayStr, workUnit: 'alert_handled', fields: {} });
+for (let i = 0; i < 2; i++) State.addRecord({ teamId: teamA.id, memberEmail: 'a2@test.com', date: todayStr, workUnit: 'alert_handled', fields: {} });
+for (let i = 0; i < 2; i++) State.addRecord({ teamId: teamB.id, memberEmail: 'b1@test.com', date: todayStr, workUnit: 'lead_contacted', fields: {} });
+
+// --- A. ADMIN Dashboard ---------------------------------------
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
+
+expect('Admin Dashboard has filter bar (department dropdown)',
+  !!window.document.getElementById('df-dept'));
+expect('Admin Dashboard has team filter',
+  !!window.document.getElementById('df-team'));
+expect('Admin Dashboard has user filter',
+  !!window.document.getElementById('df-user'));
+
+// Top metric strip
+const adminMetrics = window.document.querySelectorAll('#app-main .metric-grid .metric');
+expect('Admin Dashboard has at least 6 metric cards',
+  adminMetrics.length >= 6);
+
+// Today metric should show 7 (3+2+2)
+const todayMetric = [...adminMetrics].find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('Admin Dashboard "Today" metric reflects all records',
+  todayMetric && /\b7\b/.test(todayMetric.textContent));
+
+// Cross-team leaderboard
+expect('Admin Dashboard has cross-team leaderboard',
+  !!window.document.querySelector('.dash-team-board'));
+expect('Top team is Alpha (5 records this week vs Bravo 2)',
+  /Team Alpha/.test(window.document.querySelector('.dash-team-row').textContent));
+
+// Department filter narrows to Alerts only
+const dfDept = window.document.getElementById('df-dept');
+dfDept.value = 'Alerts';
+dfDept.dispatchEvent(new window.Event('change'));
+const todayMetricFiltered = [...window.document.querySelectorAll('#app-main .metric-grid .metric')]
+  .find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('After dept=Alerts filter, Today metric drops to 5',
+  todayMetricFiltered && /\b5\b/.test(todayMetricFiltered.textContent));
+expect('After dept filter, "Clear filters" button appears',
+  !!window.document.getElementById('df-clear'));
+
+// Team filter narrows further
+const dfTeam = window.document.getElementById('df-team');
+dfTeam.value = teamA.id;
+dfTeam.dispatchEvent(new window.Event('change'));
+expect('After team=Alpha filter, only Alpha members in user dropdown',
+  [...window.document.getElementById('df-user').options]
+    .filter(o => o.value)
+    .every(o => /Alpha/.test(o.textContent)));
+
+// User filter narrows to single user
+const dfUser = window.document.getElementById('df-user');
+dfUser.value = 'a1@test.com';
+dfUser.dispatchEvent(new window.Event('change'));
+const todayMetricUser = [...window.document.querySelectorAll('#app-main .metric-grid .metric')]
+  .find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('After user=a1 filter, Today metric is 3 (a1 only)',
+  todayMetricUser && /\b3\b/.test(todayMetricUser.textContent));
+
+// Clear filters
+window.document.getElementById('df-clear').click();
+expect('After Clear, dept dropdown is reset',
+  window.document.getElementById('df-dept').value === '');
+
+// --- B. MANAGER Dashboard ------------------------------------
+State.setSession('manager', 'alpha@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
+
+expect('Manager Dashboard has member filter',
+  !!window.document.getElementById('dash-member'));
+
+const mgrMetrics = window.document.querySelectorAll('#app-main .metric-grid .metric');
+expect('Manager Dashboard has 4+ metric cards',
+  mgrMetrics.length >= 4);
+const mgrTodayMetric = [...mgrMetrics].find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('Manager Dashboard Today metric = 5 (Alpha team total)',
+  mgrTodayMetric && /\b5\b/.test(mgrTodayMetric.textContent));
+
+expect('Manager Dashboard shows "Top Performers" leaderboard',
+  /Top Performers/.test(window.document.querySelector('#app-main').textContent));
+expect('Manager Dashboard shows Goal Hit Rate card',
+  /Goal Hit Rate/.test(window.document.querySelector('#app-main').textContent));
+
+// Member filter
+const dashMember = window.document.getElementById('dash-member');
+dashMember.value = 'a1@test.com';
+dashMember.dispatchEvent(new window.Event('change'));
+const mgrTodayFiltered = [...window.document.querySelectorAll('#app-main .metric-grid .metric')]
+  .find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('Manager Dashboard filter narrows Today to 3 (a1 only)',
+  mgrTodayFiltered && /\b3\b/.test(mgrTodayFiltered.textContent));
+
+// --- C. MEMBER Dashboard --------------------------------------
+State.setSession('member', 'a1@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
+
+const mbrMetrics = window.document.querySelectorAll('#app-main .metric-grid .metric');
+expect('Member Dashboard has 4 metric cards',
+  mbrMetrics.length === 4);
+const mbrTodayMetric = [...mbrMetrics].find(m => /today/i.test(m.textContent) && /records logged today/i.test(m.textContent));
+expect('Member Dashboard Today metric = 3 (a1 own records)',
+  mbrTodayMetric && /\b3\b/.test(mbrTodayMetric.textContent));
+
+expect('Member Dashboard shows "You vs The Team" card (team has >1 member)',
+  /You vs The Team/.test(window.document.querySelector('#app-main').textContent));
+expect('Member Dashboard shows rank "#1" or "#2"',
+  /#[12]/.test(window.document.querySelector('#app-main').textContent));
+
+// Solo team: no rank card
+State.setSession('member', 'b1@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
+expect('Solo-team member Dashboard does NOT show "You vs The Team"',
+  !/You vs The Team/.test(window.document.querySelector('#app-main').textContent));
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);

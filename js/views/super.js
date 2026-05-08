@@ -15,6 +15,10 @@ const SuperView = (() => {
   // Default tab — Dashboard is the new entry point per sketch.
   let tab = 'dashboard';
 
+  // Phase 6 part 5: admin Dashboard filter state (department / team / user).
+  // Each filter narrows independently; combining them does set-intersection.
+  let dashFilter = { department: '', teamId: '', memberEmail: '' };
+
   function render(session) {
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
@@ -56,21 +60,214 @@ const SuperView = (() => {
   // ship in Phase 6 part 2. The stubs explain WHY they're empty
   // so Mia's dev knows the IA placement is intentional.
 
+  // Phase 6 part 5: real admin Dashboard.
+  // Company-wide overview with three independent filters
+  // (department, team, member). All metrics + leaderboard + activity
+  // below scale to the filter intersection.
   function renderDashboardStub(main, session) {
+    const s = State.get();
+    const today = Utils.todayISO();
+
+    // ----- Apply filters ----------------------------------------
+    // Teams in scope: filtered by department first, then by direct team pick
+    let scopedTeams = s.teams;
+    if (dashFilter.department) {
+      scopedTeams = scopedTeams.filter(t => (t.department||'') === dashFilter.department);
+    }
+    if (dashFilter.teamId) {
+      scopedTeams = scopedTeams.filter(t => t.id === dashFilter.teamId);
+    }
+    const scopedTeamIds = new Set(scopedTeams.map(t => t.id));
+
+    // Members in scope: belong to a scoped team, AND match member filter if any
+    let scopedMembers = s.members.filter(m => scopedTeamIds.has(m.teamId));
+    if (dashFilter.memberEmail) {
+      scopedMembers = scopedMembers.filter(m => m.email.toLowerCase() === dashFilter.memberEmail.toLowerCase());
+    }
+    const scopedMemberEmails = new Set(scopedMembers.map(m => m.email.toLowerCase()));
+
+    // Records: belong to a scoped team AND (if member filter active) authored by scoped member
+    let records = s.records.filter(r => scopedTeamIds.has(r.teamId));
+    if (dashFilter.memberEmail) {
+      records = records.filter(r => r.memberEmail.toLowerCase() === dashFilter.memberEmail.toLowerCase());
+    }
+
+    // ----- Build metrics ----------------------------------------
+    const todayRecs = records.filter(r => r.date === today).length;
+    const monthPfx = today.slice(0, 7);
+    const monthRecs = records.filter(r => r.date.startsWith(monthPfx)).length;
+    const weekDays = Analytics.lastNDays(7, today);
+    const weekRecs = records.filter(r => weekDays.includes(r.date)).length;
+
+    // Active users today: distinct memberEmails who logged a record today
+    const activeToday = new Set(
+      records.filter(r => r.date === today).map(r => r.memberEmail.toLowerCase())
+    ).size;
+
+    // ----- Build cross-team leaderboard (top by record count this week)
+    const teamScores = scopedTeams.map(t => {
+      const teamRecs = records.filter(r => r.teamId === t.id && weekDays.includes(r.date));
+      return {
+        team: t,
+        count: teamRecs.length,
+        memberCount: scopedMembers.filter(m => m.teamId === t.id).length,
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    // Department + member dropdown options
+    const allDepartments = State.getDepartments();
+    const filterTeamOptions = (dashFilter.department
+      ? s.teams.filter(t => t.department === dashFilter.department)
+      : s.teams
+    );
+    const filterMemberOptions = (dashFilter.teamId
+      ? s.members.filter(m => m.teamId === dashFilter.teamId)
+      : (dashFilter.department
+          ? s.members.filter(m => filterTeamOptions.some(t => t.id === m.teamId))
+          : s.members)
+    );
+
+    const filterActive = !!(dashFilter.department || dashFilter.teamId || dashFilter.memberEmail);
+
     main.innerHTML = `
       <div class="page-header">
         <div>
           <h2>Dashboard</h2>
-          <div class="ph-sub">Company-wide productivity overview</div>
+          <div class="ph-sub">Company-wide view · ${escape(s.company.name || 'Chargebacks911')}</div>
         </div>
       </div>
-      <div class="empty-stub">
-        ${Utils.icon('dashboard', 48)}
-        <h3>Dashboard coming in Phase 6</h3>
-        <p>This will be the company-wide productivity overview — top metrics, leaderboards across teams, and filterable views by department / team / user. Modeled on Intelihub's prod dashboard.</p>
-        <p class="empty-stub-hint">For now, the <strong>Stats</strong> tab shows the existing overview metrics.</p>
+
+      <div class="card dash-filter-bar">
+        <div class="card-body">
+          <div class="dash-filters">
+            <div class="form-row">
+              <label class="label">Department</label>
+              <select id="df-dept">
+                <option value="">All departments</option>
+                ${allDepartments.map(d => `<option value="${escape(d)}" ${dashFilter.department===d?'selected':''}>${escape(d)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">Team</label>
+              <select id="df-team">
+                <option value="">All teams</option>
+                ${filterTeamOptions.map(t => `<option value="${escape(t.id)}" ${dashFilter.teamId===t.id?'selected':''}>${escape(t.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">User</label>
+              <select id="df-user">
+                <option value="">All users</option>
+                ${filterMemberOptions.map(m => `<option value="${escape(m.email)}" ${dashFilter.memberEmail===m.email?'selected':''}>${escape(m.displayName)}</option>`).join('')}
+              </select>
+            </div>
+            ${filterActive ? `<div class="dash-filter-clear">
+              <button class="btn btn-ghost btn-sm" id="df-clear">Clear filters</button>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        ${metric('Today',        todayRecs,                        'records logged today',      'r')}
+        ${metric('This Week',    weekRecs,                         'last 7 days',               'b')}
+        ${metric('This Month',   monthRecs,                        'month-to-date',             'g')}
+        ${metric('Active Today', activeToday,                      'users with records today',  'a')}
+        ${metric('Teams',        scopedTeams.length,               filterActive?'in scope':'configured', '')}
+        ${metric('Members',      scopedMembers.length,             filterActive?'in scope':'employees',  'p')}
+      </div>
+
+      <div class="split-2">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">${Utils.icon('crown',14)} Top Teams</span>
+            <span class="muted text-xs">this week</span>
+          </div>
+          ${teamScores.length && teamScores[0].count > 0
+            ? `<div class="dash-team-board">
+                ${teamScores.slice(0, 8).map((row, i) => {
+                  const max = teamScores[0].count || 1;
+                  const pct = Math.round((row.count / max) * 100);
+                  return `
+                    <div class="dash-team-row">
+                      <div class="dash-team-rank">#${i+1}</div>
+                      <div class="dash-team-info">
+                        <div class="dash-team-name">${escape(row.team.name)}</div>
+                        <div class="dash-team-meta muted">${escape(row.team.department||'—')} · ${row.memberCount} member${row.memberCount!==1?'s':''}</div>
+                      </div>
+                      <div class="dash-team-bar">
+                        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+                      </div>
+                      <div class="dash-team-count"><strong>${row.count}</strong></div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>`
+            : `<div class="card-body">${emptyState('No team activity', filterActive?'No records match your filters this week.':'Records will appear here as teams log work.', 'crown')}</div>`}
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Recent Activity</span>
+          </div>
+          ${records.length ? `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Date</th><th>Member</th><th>Team</th><th>Work</th></tr></thead>
+                <tbody>
+                  ${records.slice(-10).reverse().map(r => {
+                    const m = s.members.find(x => x.email === r.memberEmail);
+                    const t = s.teams.find(x => x.id === r.teamId);
+                    return `<tr>
+                      <td>${escape(r.date)}</td>
+                      <td>${m ? escape(m.displayName) : '<span class="muted">—</span>'}</td>
+                      <td>${t ? escape(t.name) : '<span class="muted">—</span>'}</td>
+                      <td>${escape(LIBRARY.workUnitLabel(r.workUnit, t?.workUnitLabels))}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : `<div class="card-body">${emptyState('No activity', filterActive?'No records match your filters.':'Records will show here as members log work.', 'chart')}</div>`}
+        </div>
       </div>
     `;
+
+    // ----- Bind filter dropdowns ---------------------------------
+    const dept = document.getElementById('df-dept');
+    const team = document.getElementById('df-team');
+    const user = document.getElementById('df-user');
+
+    dept.onchange = () => {
+      dashFilter.department = dept.value;
+      // If current team is no longer in the scoped department, clear it.
+      if (dashFilter.teamId) {
+        const t = s.teams.find(x => x.id === dashFilter.teamId);
+        if (!t || (dashFilter.department && t.department !== dashFilter.department)) {
+          dashFilter.teamId = '';
+          dashFilter.memberEmail = '';
+        }
+      }
+      render(session);
+    };
+    team.onchange = () => {
+      dashFilter.teamId = team.value;
+      // Clear member if not in the new team
+      if (dashFilter.memberEmail && dashFilter.teamId) {
+        const m = s.members.find(x => x.email === dashFilter.memberEmail);
+        if (!m || m.teamId !== dashFilter.teamId) dashFilter.memberEmail = '';
+      }
+      render(session);
+    };
+    user.onchange = () => {
+      dashFilter.memberEmail = user.value;
+      render(session);
+    };
+    const clear = document.getElementById('df-clear');
+    if (clear) clear.onclick = () => {
+      dashFilter = { department: '', teamId: '', memberEmail: '' };
+      render(session);
+    };
   }
 
   // Phase 6 part 4: real Import tab for super admin.

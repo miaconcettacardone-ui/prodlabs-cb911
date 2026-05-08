@@ -24,6 +24,7 @@ const ManagerView = (() => {
   let drillMember = null;
   let activitySort = { col: 'date', dir: 'desc' };
   let activityFilter = { search: '', memberEmail: '', workUnit: '', dateFrom: '', dateTo: '' };
+  let dashboardMember = ''; // Phase 6 part 5: Dashboard member filter
 
   // ----- main entry -----------------------------------------
   function render(session) {
@@ -88,17 +89,18 @@ const ManagerView = (() => {
   }
 
   // ===== PHASE 6 STUBS =======================================
+  // Phase 6 part 5: real Dashboard.
+  // Two modes inside one function:
+  //   1. Empty-state CTA — team has no work units (Phase 6 part 4)
+  //   2. Real dashboard — team configured: top metrics, today's goals,
+  //      compact leaderboards, recent activity, with a member filter
+  //      that narrows everything below it to one team member.
   function renderDashboardStub(main, session) {
     const team = session.team;
     const firstName = (session.user.displayName || '').split(/\s+/)[0] || 'there';
-
-    // Phase 6 part 4: Empty-state CTA when team has no work units.
-    // This is the manager's first-time experience after admin creates
-    // their team but before configuration. Without this, the Dashboard
-    // shows an unhelpful "coming soon" stub even though there's a real
-    // setup path one click away.
     const isUnconfigured = !team.workUnits || team.workUnits.length === 0;
 
+    // ----- Empty-state CTA (unchanged from part 4) ---------------
     if (isUnconfigured) {
       main.innerHTML = `
         <div class="page-header">
@@ -126,22 +128,100 @@ const ManagerView = (() => {
       return;
     }
 
-    // Configured team but real Dashboard not built yet — show the
-    // existing Phase 6 stub.
+    // ----- Real Dashboard ----------------------------------------
+    const allMembers = State.membersOfTeam(team.id);
+    const allRecords = State.recordsOfTeam(team.id);
+
+    // Apply member filter (module-scoped, persists within Dashboard)
+    const records = dashboardMember
+      ? allRecords.filter(r => r.memberEmail.toLowerCase() === dashboardMember.toLowerCase())
+      : allRecords;
+    const today = Utils.todayISO();
+    const periods = Analytics.periodCounts(records, today);
+    const todayRecs = records.filter(r => r.date === today);
+    const weekRecs = records.filter(r => Analytics.lastNDays(7, today).includes(r.date));
+    const goalsActive = Analytics.activeGoals(team);
+
+    // Build filter dropdown
+    const memberOptions = allMembers
+      .map(m => `<option value="${escape(m.email)}" ${m.email===dashboardMember?'selected':''}>${escape(m.displayName)}</option>`)
+      .join('');
+
     main.innerHTML = `
       <div class="page-header">
         <div>
           <h2>Dashboard</h2>
-          <div class="ph-sub">Your team at a glance</div>
+          <div class="ph-sub">${escape(team.name)} · ${allMembers.length} member${allMembers.length!==1?'s':''}${dashboardMember?' · filtered':''}</div>
+        </div>
+        <div class="flex gap-8">
+          <select class="dash-filter" id="dash-member">
+            <option value="">All members</option>
+            ${memberOptions}
+          </select>
+          <button class="btn btn-primary" data-go="import">${Utils.icon('plus',14)} Log Work</button>
         </div>
       </div>
-      <div class="empty-stub">
-        ${Utils.icon('dashboard', 48)}
-        <h3>Dashboard coming in Phase 6</h3>
-        <p>This will roll up your team's productivity into a single Intelihub-style overview — top metrics, leaderboards, goal progress, with optional filtering by team member.</p>
-        <p class="empty-stub-hint">For now, the <strong>Stats</strong> tab shows the existing team overview.</p>
+
+      <div class="metric-grid">
+        ${metric('Today',      periods.today,                   'records logged today',  'r')}
+        ${metric('This Week',  periods.thisWeek,                'week-to-date',          'b')}
+        ${metric('This Month', periods.thisMonth,               'month-to-date',         'g')}
+        ${metric('All Time',   periods.allTime.toLocaleString(),'total records',         'a')}
+      </div>
+
+      ${goalsActive.length && !dashboardMember
+        ? renderTeamGoalsCard(team, allMembers, todayRecs, goalsActive)
+        : ''}
+
+      <div class="split-2">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">${Utils.icon('crown',14)} Top Performers</span>
+            <span class="muted text-xs">this week</span>
+          </div>
+          ${allMembers.length && weekRecs.length && !dashboardMember
+            ? renderLeaderboard(Analytics.buildTopByTotal(allMembers, weekRecs), 'records')
+            : `<div class="card-body">${emptyState(
+                dashboardMember ? 'Filter active' : 'Nothing yet',
+                dashboardMember ? 'Clear the member filter to see the leaderboard.' : (allMembers.length ? 'No records this week yet.' : 'Add team members first.'),
+                'crown'
+              )}</div>`}
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">${Utils.icon('check',14)} Goal Hit Rate</span>
+            <span class="muted text-xs">last ${CONFIG.GOAL_HIT_RATE_DAYS} days</span>
+          </div>
+          ${allMembers.length && goalsActive.length && !dashboardMember
+            ? renderLeaderboard(Analytics.buildGoalHitRate(team, allMembers, allRecords), 'pct')
+            : `<div class="card-body">${emptyState(
+                dashboardMember ? 'Filter active' : (goalsActive.length ? 'No team members' : 'No goals to track'),
+                dashboardMember ? 'Clear the member filter to see hit rates.' : (goalsActive.length ? 'Add team members to track goal hit rates.' : 'Set daily goals in Settings.'),
+                'check'
+              )}</div>`}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Recent Activity</span>
+          <button class="btn btn-ghost btn-sm" data-go="history">View all ${Utils.icon('arrow', 12)}</button>
+        </div>
+        ${records.length
+          ? renderActivityTable(team, allMembers, records.slice(-CONFIG.RECENT_ACTIVITY_SIZE).reverse(), { compact: true })
+          : `<div class="card-body">${emptyState('No records yet', dashboardMember ? 'This member hasn\u2019t logged any records.' : 'Records will appear here as work is logged.', 'chart')}</div>`}
       </div>
     `;
+
+    bindLinks(main, session);
+    bindRowActions(main, session);
+
+    // Filter dropdown
+    document.getElementById('dash-member').onchange = (e) => {
+      dashboardMember = e.target.value;
+      render(session); // re-render Dashboard with new filter
+    };
   }
 
   // Phase 6 part 4: Import tab is now a real two-section page.
