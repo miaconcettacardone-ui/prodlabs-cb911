@@ -19,6 +19,14 @@ const SuperView = (() => {
   // Each filter narrows independently; combining them does set-intersection.
   let dashFilter = { department: '', teamId: '', memberEmail: '' };
 
+  // Phase 6 part 6: admin History filter state. Same pattern as dashFilter
+  // but with date range pickers added. Persists across re-renders within
+  // the History tab.
+  let historyFilterAdmin = {
+    department: '', teamId: '', memberEmail: '',
+    dateFrom: '', dateTo: '',
+  };
+
   function render(session) {
     const main = document.getElementById('app-main');
     const tabsEl = document.getElementById('app-tabs');
@@ -345,20 +353,269 @@ const SuperView = (() => {
     };
   }
 
+  // Phase 6 part 6: real admin History page
+  // Company-wide PDF report with department / team / user filters
+  // and a date-range picker (with quick presets). Below the controls,
+  // an in-app record table scoped to the same filters.
   function renderHistoryStub(main, session) {
+    const s = State.get();
+
+    // Filter the master record set
+    let scopedTeams = s.teams;
+    if (historyFilterAdmin.department) {
+      scopedTeams = scopedTeams.filter(t => (t.department || '') === historyFilterAdmin.department);
+    }
+    if (historyFilterAdmin.teamId) {
+      scopedTeams = scopedTeams.filter(t => t.id === historyFilterAdmin.teamId);
+    }
+    const scopedTeamIds = new Set(scopedTeams.map(t => t.id));
+
+    let scopedMembers = s.members.filter(m => scopedTeamIds.has(m.teamId));
+    if (historyFilterAdmin.memberEmail) {
+      scopedMembers = scopedMembers.filter(m => m.email.toLowerCase() === historyFilterAdmin.memberEmail.toLowerCase());
+    }
+
+    let records = s.records.filter(r => scopedTeamIds.has(r.teamId));
+    if (historyFilterAdmin.memberEmail) {
+      records = records.filter(r => r.memberEmail.toLowerCase() === historyFilterAdmin.memberEmail.toLowerCase());
+    }
+    records = Reports.filterByRange(records, historyFilterAdmin.dateFrom, historyFilterAdmin.dateTo);
+
+    // Newest first for the in-app table
+    records = [...records].sort((a, b) => b.date.localeCompare(a.date));
+
+    // Filter dropdown options
+    const allDepartments = State.getDepartments();
+    const teamOptions = (historyFilterAdmin.department
+      ? s.teams.filter(t => t.department === historyFilterAdmin.department)
+      : s.teams);
+    const memberOptions = (historyFilterAdmin.teamId
+      ? s.members.filter(m => m.teamId === historyFilterAdmin.teamId)
+      : (historyFilterAdmin.department
+          ? s.members.filter(m => teamOptions.some(t => t.id === m.teamId))
+          : s.members));
+
+    const filterActive = !!(
+      historyFilterAdmin.department ||
+      historyFilterAdmin.teamId ||
+      historyFilterAdmin.memberEmail ||
+      historyFilterAdmin.dateFrom ||
+      historyFilterAdmin.dateTo
+    );
+
     main.innerHTML = `
       <div class="page-header">
         <div>
           <h2>History</h2>
-          <div class="ph-sub">Reports and historical activity</div>
+          <div class="ph-sub">Reports and historical activity · ${escape(s.company.name || 'Chargebacks911')}</div>
+        </div>
+        <button class="btn btn-primary" id="hi-pdf">${Utils.icon('history',14)} Generate PDF Report</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Quick range</span>
+          <span class="muted text-xs">Sets the From/To dates below</span>
+        </div>
+        <div class="card-body">
+          <div class="preset-row">
+            <button class="btn btn-ghost btn-sm" data-preset="last30">Last 30 days</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisMonth">This month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="lastMonth">Last month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisQuarter">This quarter</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisYear">This year</button>
+            <button class="btn btn-ghost btn-sm" data-preset="allTime">All time</button>
+          </div>
         </div>
       </div>
-      <div class="empty-stub">
-        ${Utils.icon('history', 48)}
-        <h3>History &amp; Reports coming in Phase 6</h3>
-        <p>Monthly, bi-monthly, and yearly PDF reports will generate here. Admin sees full company; managers see their team(s); users see their own report history.</p>
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">Filters</span></div>
+        <div class="card-body">
+          <div class="dash-filters">
+            <div class="form-row">
+              <label class="label">Department</label>
+              <select id="hf-dept">
+                <option value="">All departments</option>
+                ${allDepartments.map(d => `<option value="${escape(d)}" ${historyFilterAdmin.department===d?'selected':''}>${escape(d)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">Team</label>
+              <select id="hf-team">
+                <option value="">All teams</option>
+                ${teamOptions.map(t => `<option value="${escape(t.id)}" ${historyFilterAdmin.teamId===t.id?'selected':''}>${escape(t.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="label">User</label>
+              <select id="hf-user">
+                <option value="">All users</option>
+                ${memberOptions.map(m => `<option value="${escape(m.email)}" ${historyFilterAdmin.memberEmail===m.email?'selected':''}>${escape(m.displayName)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="dash-filters" style="margin-top:1rem">
+            <div class="form-row">
+              <label class="label">From</label>
+              <input id="hf-from" type="date" value="${escape(historyFilterAdmin.dateFrom)}">
+            </div>
+            <div class="form-row">
+              <label class="label">To</label>
+              <input id="hf-to" type="date" value="${escape(historyFilterAdmin.dateTo)}">
+            </div>
+            ${filterActive ? `<div class="dash-filter-clear">
+              <button class="btn btn-ghost btn-sm" id="hf-clear">Clear filters</button>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        ${metric('Records',     records.length.toLocaleString(),     filterActive?'in scope':'in range', 'r')}
+        ${metric('Teams',       scopedTeams.length,                  filterActive?'in scope':'configured', 'b')}
+        ${metric('Members',     scopedMembers.length,                filterActive?'in scope':'employees', 'g')}
+        ${metric('Active',      new Set(records.map(r=>r.memberEmail.toLowerCase())).size, 'logged at least once', 'a')}
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Records</span>
+          <span class="muted text-xs">${records.length.toLocaleString()} record${records.length!==1?'s':''}${filterActive?' (filtered)':''}</span>
+        </div>
+        ${records.length ? `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Member</th><th>Team</th><th>Work Unit</th></tr></thead>
+              <tbody>
+                ${records.slice(0, 200).map(r => {
+                  const m = s.members.find(x => x.email === r.memberEmail);
+                  const t = s.teams.find(x => x.id === r.teamId);
+                  return `<tr>
+                    <td>${escape(r.date)}</td>
+                    <td>${m ? escape(m.displayName) : '<span class="muted">—</span>'}</td>
+                    <td>${t ? escape(t.name) : '<span class="muted">—</span>'}</td>
+                    <td>${escape(LIBRARY.workUnitLabel(r.workUnit, t?.workUnitLabels))}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+            ${records.length > 200 ? `<div class="card-body"><p class="helper">Showing first 200 records. Generate a PDF report to download the full set (${records.length.toLocaleString()} records).</p></div>` : ''}
+          </div>
+        ` : `<div class="card-body">${emptyState('No records', filterActive?'No records match your filters.':'Records will appear here as members log work.', 'history')}</div>`}
       </div>
     `;
+
+    // ----- Bindings -----------------------------------------
+    document.getElementById('hf-dept').onchange = (e) => {
+      historyFilterAdmin.department = e.target.value;
+      // Cascade: clear team if no longer in scope
+      if (historyFilterAdmin.teamId) {
+        const t = s.teams.find(x => x.id === historyFilterAdmin.teamId);
+        if (!t || (historyFilterAdmin.department && t.department !== historyFilterAdmin.department)) {
+          historyFilterAdmin.teamId = '';
+          historyFilterAdmin.memberEmail = '';
+        }
+      }
+      render(session);
+    };
+    document.getElementById('hf-team').onchange = (e) => {
+      historyFilterAdmin.teamId = e.target.value;
+      if (historyFilterAdmin.memberEmail && historyFilterAdmin.teamId) {
+        const m = s.members.find(x => x.email === historyFilterAdmin.memberEmail);
+        if (!m || m.teamId !== historyFilterAdmin.teamId) historyFilterAdmin.memberEmail = '';
+      }
+      render(session);
+    };
+    document.getElementById('hf-user').onchange = (e) => {
+      historyFilterAdmin.memberEmail = e.target.value;
+      render(session);
+    };
+    document.getElementById('hf-from').onchange = (e) => {
+      historyFilterAdmin.dateFrom = e.target.value;
+      render(session);
+    };
+    document.getElementById('hf-to').onchange = (e) => {
+      historyFilterAdmin.dateTo = e.target.value;
+      render(session);
+    };
+    const clearBtn = document.getElementById('hf-clear');
+    if (clearBtn) clearBtn.onclick = () => {
+      historyFilterAdmin = { department:'', teamId:'', memberEmail:'', dateFrom:'', dateTo:'' };
+      render(session);
+    };
+
+    // Date-range presets
+    main.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.onclick = () => {
+        const [from, to] = Reports.preset(btn.dataset.preset);
+        historyFilterAdmin.dateFrom = from;
+        historyFilterAdmin.dateTo   = to;
+        render(session);
+      };
+    });
+
+    // Generate PDF button
+    document.getElementById('hi-pdf').onclick = () => {
+      generateAdminPdf(session, scopedTeams, scopedMembers, records);
+    };
+  }
+
+  // ============================================================
+  //  ADMIN PDF REPORT (Phase 6 part 6)
+  // ============================================================
+  function generateAdminPdf(session, scopedTeams, scopedMembers, records) {
+    const s = State.get();
+    const totalCount = records.length;
+    const memberSet = new Set(records.map(r => r.memberEmail.toLowerCase()));
+    const dateFrom = historyFilterAdmin.dateFrom || (records.length ? records.map(r => r.date).sort()[0] : '—');
+    const dateTo   = historyFilterAdmin.dateTo   || (records.length ? records.map(r => r.date).sort().slice(-1)[0] : '—');
+
+    const tableHead = ['Date', 'Team', 'Member', 'Work Unit'];
+    const tableBody = records.map(r => {
+      const m = s.members.find(x => x.email === r.memberEmail);
+      const t = s.teams.find(x => x.id === r.teamId);
+      return [
+        r.date,
+        t ? t.name : '—',
+        m ? m.displayName : r.memberEmail,
+        LIBRARY.workUnitLabel(r.workUnit, t?.workUnitLabels),
+      ];
+    });
+
+    const filterParts = [];
+    if (historyFilterAdmin.department) filterParts.push(`Department: ${historyFilterAdmin.department}`);
+    if (historyFilterAdmin.teamId) {
+      const t = s.teams.find(x => x.id === historyFilterAdmin.teamId);
+      if (t) filterParts.push(`Team: ${t.name}`);
+    }
+    if (historyFilterAdmin.memberEmail) {
+      const m = s.members.find(x => x.email === historyFilterAdmin.memberEmail);
+      if (m) filterParts.push(`User: ${m.displayName}`);
+    }
+
+    const subtitle = filterParts.length
+      ? `Filtered: ${filterParts.join(' · ')}`
+      : `Company-wide · ${scopedTeams.length} team${scopedTeams.length!==1?'s':''} · ${scopedMembers.length} member${scopedMembers.length!==1?'s':''}`;
+
+    const ok = Reports.generate({
+      scope: 'Admin',
+      companyName: s.company.name || 'Chargebacks911',
+      reportTitle: 'Company Activity Report',
+      subtitle,
+      fromIso: dateFrom,
+      toIso: dateTo,
+      summary: [
+        { label: 'Total Records', value: totalCount.toLocaleString() },
+        { label: 'Teams',         value: scopedTeams.length.toLocaleString() },
+        { label: 'Members',       value: scopedMembers.length.toLocaleString() },
+        { label: 'Active Users',  value: memberSet.size.toLocaleString() },
+      ],
+      sectionTitle: 'All Records',
+      tableHead,
+      tableBody,
+    });
+    if (ok) Utils.toast(`PDF report ready (${totalCount} records)`, 'good');
   }
 
   // ===== OVERVIEW =====

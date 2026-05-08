@@ -719,12 +719,29 @@ const ManagerView = (() => {
     main.innerHTML = `
       <div class="page-header">
         <div>
-          <h2>Activity</h2>
-          <div class="ph-sub">Full record history for ${escape(team.name)} · ${records.length.toLocaleString()} record${records.length!==1?'s':''}</div>
+          <h2>History</h2>
+          <div class="ph-sub">Full record history for ${escape(team.name)} · ${records.length.toLocaleString()} record${records.length!==1?'s':''} total</div>
         </div>
         <div class="flex gap-8">
-          ${CONFIG.FEATURES.csvImport ? `<button class="btn btn-ghost" id="act-import">${Utils.icon('upload',14)} Bulk Import</button>` : ''}
-          <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
+          <button class="btn btn-primary" id="hi-pdf">${Utils.icon('history',14)} Generate PDF Report</button>
+          <button class="btn btn-ghost" data-go="import">${Utils.icon('plus',14)} Log Work</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Quick range</span>
+          <span class="muted text-xs">Sets the From/To filters below</span>
+        </div>
+        <div class="card-body">
+          <div class="preset-row">
+            <button class="btn btn-ghost btn-sm" data-preset="last30">Last 30 days</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisMonth">This month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="lastMonth">Last month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisQuarter">This quarter</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisYear">This year</button>
+            <button class="btn btn-ghost btn-sm" data-preset="allTime">All time</button>
+          </div>
         </div>
       </div>
 
@@ -807,9 +824,20 @@ const ManagerView = (() => {
     bindSortHeaders(team, members, records);
     bindRowActions(main, session);
 
-    if (CONFIG.FEATURES.csvImport) {
-      document.getElementById('act-import').onclick = () => openImportModal(session);
-    }
+    // Phase 6 part 6: date-range presets fill the From/To inputs
+    main.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.onclick = () => {
+        const [from, to] = Reports.preset(btn.dataset.preset);
+        document.getElementById('af-from').value = from;
+        document.getElementById('af-to').value   = to;
+        apply();
+      };
+    });
+
+    // Phase 6 part 6: Generate PDF report scoped to current filters
+    document.getElementById('hi-pdf').onclick = () => {
+      generateManagerPdf(session, team, members, records);
+    };
 
     if (records.length && members.length) Charts.byMember('ch-act-mem', members, records);
     if (records.length) Charts.dayOfWeek('ch-act-dow', records);
@@ -827,6 +855,76 @@ const ManagerView = (() => {
         bindRowActions(document.getElementById('app-main'), { team }); // session shape ok for action-binding lookups
       };
     });
+  }
+
+  // ============================================================
+  //  PDF REPORT GENERATION (Phase 6 part 6)
+  // ============================================================
+  // Scope: the manager's team only. Uses the current activityFilter
+  // to determine date range + member/work-unit filters. Records
+  // outside the date range are excluded; if no range is set, the
+  // report shows all records.
+  function generateManagerPdf(session, team, members, allRecords) {
+    // Apply the same filters the table is showing
+    let recs = Analytics.filterRecords(allRecords, members, activityFilter);
+
+    // Compute summary metrics from the filtered set
+    const totalCount  = recs.length;
+    const memberSet   = new Set(recs.map(r => r.memberEmail.toLowerCase()));
+    const wuSet       = new Set(recs.map(r => r.workUnit));
+    const dateFrom    = activityFilter.dateFrom || (recs.length ? recs.map(r => r.date).sort()[0] : '—');
+    const dateTo      = activityFilter.dateTo   || (recs.length ? recs.map(r => r.date).sort().slice(-1)[0] : '—');
+
+    // Build the table — sort newest first
+    recs = [...recs].sort((a, b) => b.date.localeCompare(a.date));
+    const tableHead = ['Date', 'Member', 'Work Unit', ...team.fields.slice(0, 3).map(f => {
+      const def = LIBRARY.fieldDef(f);
+      return def ? def.label : f;
+    })];
+    const tableBody = recs.map(r => {
+      const m = members.find(mm => mm.email.toLowerCase() === r.memberEmail.toLowerCase());
+      const row = [
+        r.date,
+        m ? m.displayName : r.memberEmail,
+        LIBRARY.workUnitLabel(r.workUnit, team.workUnitLabels),
+      ];
+      // Up to 3 of the team's tracked fields
+      team.fields.slice(0, 3).forEach(f => {
+        const v = r.fields && r.fields[f];
+        row.push(v == null || v === '' ? '—' : String(v));
+      });
+      return row;
+    });
+
+    // Filter summary line
+    const filterParts = [];
+    if (activityFilter.memberEmail) {
+      const m = members.find(mm => mm.email === activityFilter.memberEmail);
+      if (m) filterParts.push(`Member: ${m.displayName}`);
+    }
+    if (activityFilter.workUnit) {
+      filterParts.push(`Work Unit: ${LIBRARY.workUnitLabel(activityFilter.workUnit, team.workUnitLabels)}`);
+    }
+    if (activityFilter.search) filterParts.push(`Search: "${activityFilter.search}"`);
+
+    const ok = Reports.generate({
+      scope: 'Manager',
+      companyName: State.get().company.name || 'Chargebacks911',
+      reportTitle: `${team.name} — Activity Report`,
+      subtitle: `${team.department || 'Team'} · ${members.length} member${members.length!==1?'s':''}`,
+      fromIso: dateFrom,
+      toIso: dateTo,
+      filterSummary: filterParts.length ? filterParts.join(' · ') : '',
+      summary: [
+        { label: 'Total Records', value: totalCount.toLocaleString() },
+        { label: 'Active Members', value: memberSet.size.toLocaleString() },
+        { label: 'Work Units', value: wuSet.size.toLocaleString() },
+      ],
+      sectionTitle: 'Records',
+      tableHead,
+      tableBody,
+    });
+    if (ok) Utils.toast(`PDF report ready (${totalCount} records)`, 'good');
   }
 
   // ============================================================

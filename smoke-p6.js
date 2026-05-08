@@ -1,5 +1,5 @@
 /* ============================================================
- *  smoke-p6.js — Phase 6 (parts 1, 2, 3, 4, 5) smoke test
+ *  smoke-p6.js — Phase 6 (parts 1, 2, 3, 4, 5, 6) smoke test
  * ============================================================
  *
  *  Run with:  node smoke-p6.js
@@ -37,11 +37,14 @@
  *       cards, cross-team leaderboard; manager: member filter narrows
  *       all metrics; member: "you vs team" rank card, hides for
  *       solo teams)
+ *   15. Phase 6 part 6: real History tab + PDF reports (all 3 roles)
+ *       (Reports module with jsPDF + autotable, date-range presets,
+ *       filterByRange, admin: full filter bar + PDF, manager: relabeled
+ *       Activity → History + PDF, member: Download Report; jsPDF mocked
+ *       in test runner since CDN can't load in JSDOM)
  *
- *  NOT covered (Phase 6 part 6+):
- *    - Real History/PDF reports (currently stubbed)
- *
- *  When those land, expand this test accordingly.
+ *  Phase 6 is now feature-complete. Future phases would target
+ *  the Laravel backend integration described in SPEC.md.
  * ============================================================ */
 
 const fs = require('fs');
@@ -90,6 +93,7 @@ const bundle = scriptTags.map(read).join('\n;\n') + `
   window.Auth    = Auth;
   window.Utils   = Utils;
   window.WizardSettings = WizardSettings;
+  window.Reports = Reports;
   window.Landing = Landing;
   window.Router  = Router;
 `;
@@ -98,7 +102,7 @@ s.textContent = bundle;
 window.document.head.appendChild(s);
 
 // Pull globals out for assertions
-const { State, Auth, CONFIG, LIBRARY, Landing, Router, Utils, WizardSettings } = window;
+const { State, Auth, CONFIG, LIBRARY, Landing, Router, Utils, WizardSettings, Reports } = window;
 
 // ----- 2. isFirstRun -----
 console.log('\n[2] State.isFirstRun()');
@@ -882,6 +886,209 @@ Router.go('app');
 window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
 expect('Solo-team member Dashboard does NOT show "You vs The Team"',
   !/You vs The Team/.test(window.document.querySelector('#app-main').textContent));
+
+// ----- 15. Phase 6 part 6: History tab + PDF reports -----
+console.log('\n[15] History tab + PDF reports (all 3 roles)');
+
+// jsPDF + autotable load via CDN in production. In JSDOM there's no
+// network, so we install a minimal mock that records what the report
+// would have contained — enough to verify the wiring is correct.
+let lastPdf = null;
+window.jspdf = {
+  jsPDF: function(opts) {
+    this._opts = opts;
+    this._calls = [];
+    this.internal = {
+      pageSize: { getWidth: () => 215.9, getHeight: () => 279.4 },
+      getNumberOfPages: () => 1,
+    };
+    this.setFillColor   = () => {};
+    this.setDrawColor   = () => {};
+    this.setTextColor   = () => {};
+    this.setFont        = () => {};
+    this.setFontSize    = () => {};
+    this.rect           = () => {};
+    this.roundedRect    = () => {};
+    this.text           = (txt, x, y, opts) => { this._calls.push({op:'text', txt, x, y}); };
+    this.autoTable      = (opts) => { this._calls.push({op:'table', head: opts.head, body: opts.body}); };
+    this.save           = (filename) => {
+      lastPdf = { filename, calls: this._calls };
+    };
+    return this;
+  },
+};
+// Attach autoTable to API prototype (matches real plugin shape)
+window.jspdf.jsPDF.API = { autoTable: function(){} };
+
+// Re-test isAvailable (Reports module was created before mock was set)
+expect('Reports.isAvailable() returns true with mock', Reports.isAvailable() === true);
+
+// --- Set up: shared seed used by all role tests ---
+State.reset();
+State.bootstrapDev();
+const histTeam = State.addTeam({
+  name: 'History Team', department: 'Alerts',
+  managerEmail: 'histmgr@test.com',
+  workUnits: ['alert_handled'], workUnitLabels: {},
+  fields: ['amount'], roles: ['Analyst'], goals: { alert_handled: 5 },
+});
+State.addManager({
+  email: 'histmgr@test.com', username: 'histmgr', displayName: 'History Manager',
+  password: 'longpassword!', teamId: histTeam.id, approvedBy: '__test__',
+});
+State.addMember({
+  email: 'histmem@test.com', username: 'histmem', displayName: 'History Member',
+  password: 'longpassword!', teamId: histTeam.id, role: 'Analyst', approvedBy: '__test__',
+});
+const today = new Date().toISOString().slice(0, 10);
+const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+for (let i = 0; i < 3; i++) State.addRecord({ teamId: histTeam.id, memberEmail: 'histmem@test.com', date: today, workUnit: 'alert_handled', fields: { amount: 100 } });
+for (let i = 0; i < 2; i++) State.addRecord({ teamId: histTeam.id, memberEmail: 'histmem@test.com', date: yesterday, workUnit: 'alert_handled', fields: { amount: 50 } });
+
+// --- A. Reports.preset() returns sensible date ranges ---
+const [pmFrom, pmTo] = Reports.preset('thisMonth', '2026-05-15');
+expect('preset thisMonth returns ISO date pair',
+  pmFrom === '2026-05-01' && pmTo === '2026-05-31');
+const [lmFrom, lmTo] = Reports.preset('lastMonth', '2026-05-15');
+expect('preset lastMonth returns previous month',
+  lmFrom === '2026-04-01' && lmTo === '2026-04-30');
+const [l30From, l30To] = Reports.preset('last30', '2026-05-15');
+expect('preset last30 returns 30-day window ending today',
+  l30From === '2026-04-16' && l30To === '2026-05-15');
+const [yFrom, yTo] = Reports.preset('thisYear', '2026-05-15');
+expect('preset thisYear spans Jan 1 to Dec 31',
+  yFrom === '2026-01-01' && yTo === '2026-12-31');
+
+// --- B. Reports.filterByRange filters records correctly ---
+const allRecs = State.get().records;
+const inRange = Reports.filterByRange(allRecs, today, today);
+expect('filterByRange today-only returns 3 records',
+  inRange.length === 3);
+const empty = Reports.filterByRange(allRecs, '2099-01-01', '2099-12-31');
+expect('filterByRange far-future returns 0 records',
+  empty.length === 0);
+
+// --- C. Admin History tab renders & generates PDF ---
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="history"]').click();
+
+expect('Admin History has Generate PDF button',
+  !!window.document.getElementById('hi-pdf'));
+expect('Admin History has filter dropdowns',
+  !!window.document.getElementById('hf-dept') &&
+  !!window.document.getElementById('hf-team') &&
+  !!window.document.getElementById('hf-user'));
+expect('Admin History has date range inputs',
+  !!window.document.getElementById('hf-from') &&
+  !!window.document.getElementById('hf-to'));
+expect('Admin History has preset buttons',
+  window.document.querySelectorAll('[data-preset]').length >= 5);
+expect('Admin History shows record count metric',
+  /\b5\b/.test(window.document.querySelector('#app-main .metric-grid').textContent));
+
+// Click "Last 30 days" preset → date inputs populate
+window.document.querySelector('[data-preset="last30"]').click();
+const fromAfterPreset = window.document.getElementById('hf-from').value;
+const toAfterPreset = window.document.getElementById('hf-to').value;
+expect('Preset click populates From input',
+  fromAfterPreset && /^\d{4}-\d{2}-\d{2}$/.test(fromAfterPreset));
+expect('Preset click populates To input',
+  toAfterPreset && /^\d{4}-\d{2}-\d{2}$/.test(toAfterPreset));
+
+// Generate the PDF
+lastPdf = null;
+window.document.getElementById('hi-pdf').click();
+expect('Admin PDF: doc.save called', lastPdf !== null);
+expect('Admin PDF: filename starts with ProdLabs_Admin',
+  lastPdf && /^ProdLabs_Admin_/.test(lastPdf.filename));
+expect('Admin PDF: filename ends in .pdf',
+  lastPdf && /\.pdf$/.test(lastPdf.filename));
+const adminTableCall = lastPdf && lastPdf.calls.find(c => c.op === 'table');
+expect('Admin PDF: includes record table', !!adminTableCall);
+expect('Admin PDF: table has Date/Team/Member/Work Unit headers',
+  adminTableCall && adminTableCall.head[0].includes('Date') &&
+  adminTableCall.head[0].includes('Team') &&
+  adminTableCall.head[0].includes('Member'));
+expect('Admin PDF: table contains 5 rows (all records)',
+  adminTableCall && adminTableCall.body.length === 5);
+
+// Test filtering: filter to today only, regenerate
+window.document.getElementById('hf-from').value = today;
+window.document.getElementById('hf-from').dispatchEvent(new window.Event('change'));
+window.document.getElementById('hf-to').value = today;
+window.document.getElementById('hf-to').dispatchEvent(new window.Event('change'));
+lastPdf = null;
+window.document.getElementById('hi-pdf').click();
+const adminFilteredTable = lastPdf && lastPdf.calls.find(c => c.op === 'table');
+expect('Admin PDF respects date filter (today only = 3 records)',
+  adminFilteredTable && adminFilteredTable.body.length === 3);
+
+// --- D. Manager History tab ---
+State.setSession('manager', 'histmgr@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="history"]').click();
+
+expect('Manager History tab page header is "History" (was "Activity")',
+  /^History\b/.test(window.document.querySelector('#app-main h2').textContent));
+expect('Manager History has Generate PDF button',
+  !!window.document.getElementById('hi-pdf'));
+expect('Manager History has preset buttons',
+  window.document.querySelectorAll('[data-preset]').length >= 5);
+
+// Click thisMonth preset → applies to af-from/af-to
+window.document.querySelector('[data-preset="thisMonth"]').click();
+expect('Manager preset click updates af-from',
+  /^\d{4}-\d{2}-\d{2}$/.test(window.document.getElementById('af-from').value));
+
+// Generate PDF
+lastPdf = null;
+window.document.getElementById('hi-pdf').click();
+expect('Manager PDF: doc.save called', lastPdf !== null);
+expect('Manager PDF: filename starts with ProdLabs_Manager',
+  lastPdf && /^ProdLabs_Manager_/.test(lastPdf.filename));
+const mgrTable = lastPdf && lastPdf.calls.find(c => c.op === 'table');
+expect('Manager PDF: table has Date/Member/Work Unit/Amount cols',
+  mgrTable && mgrTable.head[0].includes('Date') && mgrTable.head[0].includes('Member'));
+
+// --- E. Member History tab ---
+State.setSession('member', 'histmem@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="history"]').click();
+
+expect('Member History has Download Report button',
+  !!window.document.getElementById('mh-pdf'));
+expect('Member History has preset buttons',
+  window.document.querySelectorAll('[data-preset]').length >= 5);
+
+// Click "thisMonth" preset
+window.document.querySelector('[data-preset="thisMonth"]').click();
+expect('Member preset click updates mhf-from',
+  /^\d{4}-\d{2}-\d{2}$/.test(window.document.getElementById('mhf-from').value));
+
+// Generate member PDF
+lastPdf = null;
+window.document.getElementById('mh-pdf').click();
+expect('Member PDF: doc.save called', lastPdf !== null);
+expect('Member PDF: filename starts with ProdLabs_Member',
+  lastPdf && /^ProdLabs_Member_/.test(lastPdf.filename));
+const memTable = lastPdf && lastPdf.calls.find(c => c.op === 'table');
+expect('Member PDF: table has Date and Work Unit cols (no Member col — own records)',
+  memTable && memTable.head[0].includes('Date') &&
+  memTable.head[0].includes('Work Unit') &&
+  !memTable.head[0].includes('Member'));
+expect('Member PDF: table contains all my records (5)',
+  memTable && memTable.body.length === 5);
+
+// --- F. PDF unavailable graceful fallback ---
+const savedJsPDF = window.jspdf;
+delete window.jspdf;
+expect('Reports.isAvailable() returns false when jsPDF missing',
+  Reports.isAvailable() === false);
+const okFalse = Reports.generate({ scope: 'Test', tableHead: [], tableBody: [] });
+expect('Reports.generate returns false when jsPDF missing',
+  okFalse === false);
+window.jspdf = savedJsPDF; // restore
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);

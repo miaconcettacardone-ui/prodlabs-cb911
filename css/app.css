@@ -256,6 +256,14 @@ select.dash-filter {
   .dash-filter-clear { justify-content: flex-start; }
 }
 
+/* Phase 6 part 6: date-range preset buttons (History tab) */
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.preset-row .btn { white-space: nowrap; }
+
 /* Cross-team leaderboard (admin Dashboard) */
 .dash-team-board {
   padding: .25rem 0;

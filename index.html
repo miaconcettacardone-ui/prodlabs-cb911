@@ -14,6 +14,11 @@
   <!-- Chart.js (loaded but not used in Phase 1; Phase 2 will use it heavily) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" defer></script>
 
+  <!-- jsPDF + autotable plugin for PDF report generation (Phase 6 part 6).
+       autotable depends on jsPDF — keep this order. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/app.css">
@@ -46,6 +51,7 @@
   <script src="js/charts.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/csv.js"></script>
+  <script src="js/reports.js"></script>
   <script src="js/inbox.js"></script>
   <script src="js/views/landing.js"></script>
   <script src="js/views/inbox.js"></script>

@@ -535,7 +535,27 @@ const MemberView = (() => {
           <h2>My History</h2>
           <div class="ph-sub">${myRecords.length.toLocaleString()} record${myRecords.length!==1?'s':''} total</div>
         </div>
-        <button class="btn btn-primary" data-go="log">${Utils.icon('plus',14)} Log Work</button>
+        <div class="flex gap-8">
+          <button class="btn btn-primary" id="mh-pdf">${Utils.icon('history',14)} Download My Report</button>
+          <button class="btn btn-ghost" data-go="log">${Utils.icon('plus',14)} Log Work</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Quick range</span>
+          <span class="muted text-xs">Sets the From/To filters below</span>
+        </div>
+        <div class="card-body">
+          <div class="preset-row">
+            <button class="btn btn-ghost btn-sm" data-preset="last30">Last 30 days</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisMonth">This month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="lastMonth">Last month</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisQuarter">This quarter</button>
+            <button class="btn btn-ghost btn-sm" data-preset="thisYear">This year</button>
+            <button class="btn btn-ghost btn-sm" data-preset="allTime">All time</button>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -591,6 +611,80 @@ const MemberView = (() => {
     bindLinks(main, session);
     bindSortHeaders(team, myRecords, session);
     bindRowActions(main, session);
+
+    // Phase 6 part 6: presets fill the From/To inputs
+    main.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.onclick = () => {
+        const [from, to] = Reports.preset(btn.dataset.preset);
+        document.getElementById('mhf-from').value = from;
+        document.getElementById('mhf-to').value   = to;
+        apply();
+      };
+    });
+
+    // Phase 6 part 6: Generate PDF report (own records, scoped to filter)
+    document.getElementById('mh-pdf').onclick = () => {
+      generateMemberPdf(session, team, myRecords);
+    };
+  }
+
+  // ============================================================
+  //  PDF REPORT GENERATION (Phase 6 part 6)
+  // ============================================================
+  function generateMemberPdf(session, team, myRecords) {
+    // Apply current filter to my records
+    let recs = Analytics.filterRecords(myRecords, [session.user], {
+      ...historyFilter,
+      memberEmail: '', // already filtered to "me" by upstream
+    });
+
+    const totalCount = recs.length;
+    const wuSet = new Set(recs.map(r => r.workUnit));
+    const dateFrom = historyFilter.dateFrom || (recs.length ? recs.map(r => r.date).sort()[0] : '—');
+    const dateTo   = historyFilter.dateTo   || (recs.length ? recs.map(r => r.date).sort().slice(-1)[0] : '—');
+
+    // Newest first
+    recs = [...recs].sort((a, b) => b.date.localeCompare(a.date));
+
+    const tableHead = ['Date', 'Work Unit', ...team.fields.slice(0, 3).map(f => {
+      const def = LIBRARY.fieldDef(f);
+      return def ? def.label : f;
+    })];
+    const tableBody = recs.map(r => {
+      const row = [
+        r.date,
+        LIBRARY.workUnitLabel(r.workUnit, team.workUnitLabels),
+      ];
+      team.fields.slice(0, 3).forEach(f => {
+        const v = r.fields && r.fields[f];
+        row.push(v == null || v === '' ? '—' : String(v));
+      });
+      return row;
+    });
+
+    const filterParts = [];
+    if (historyFilter.workUnit) {
+      filterParts.push(`Work Unit: ${LIBRARY.workUnitLabel(historyFilter.workUnit, team.workUnitLabels)}`);
+    }
+    if (historyFilter.search) filterParts.push(`Search: "${historyFilter.search}"`);
+
+    const ok = Reports.generate({
+      scope: 'Member',
+      companyName: State.get().company.name || 'Chargebacks911',
+      reportTitle: `${session.user.displayName} — My Activity`,
+      subtitle: `${team.name}${session.user.role?' · '+session.user.role:''}`,
+      fromIso: dateFrom,
+      toIso: dateTo,
+      filterSummary: filterParts.length ? filterParts.join(' · ') : '',
+      summary: [
+        { label: 'My Records', value: totalCount.toLocaleString() },
+        { label: 'Work Units', value: wuSet.size.toLocaleString() },
+      ],
+      sectionTitle: 'My Records',
+      tableHead,
+      tableBody,
+    });
+    if (ok) Utils.toast(`Report ready (${totalCount} records)`, 'good');
   }
 
   function bindSortHeaders(team, myRecords, session) {
