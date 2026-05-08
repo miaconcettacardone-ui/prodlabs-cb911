@@ -89,6 +89,45 @@ const ManagerView = (() => {
 
   // ===== PHASE 6 STUBS =======================================
   function renderDashboardStub(main, session) {
+    const team = session.team;
+    const firstName = (session.user.displayName || '').split(/\s+/)[0] || 'there';
+
+    // Phase 6 part 4: Empty-state CTA when team has no work units.
+    // This is the manager's first-time experience after admin creates
+    // their team but before configuration. Without this, the Dashboard
+    // shows an unhelpful "coming soon" stub even though there's a real
+    // setup path one click away.
+    const isUnconfigured = !team.workUnits || team.workUnits.length === 0;
+
+    if (isUnconfigured) {
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h2>Dashboard</h2>
+            <div class="ph-sub">Your team at a glance</div>
+          </div>
+        </div>
+        <div class="empty-stub">
+          ${Utils.icon('flag', 48)}
+          <h3>Welcome, ${escape(firstName)}!</h3>
+          <p>Your team <strong>${escape(team.name)}</strong> isn't set up yet. Configure work units, fields, roles, and goals so your team can start tracking work.</p>
+          <p class="empty-stub-hint" style="margin-top:1.5rem;border-top:none;padding-top:0">
+            <button class="btn btn-primary" id="ds-wizard-launch">${Utils.icon('shieldStar',14)} Run Setup Wizard</button>
+          </p>
+        </div>
+      `;
+      document.getElementById('ds-wizard-launch').onclick = () => {
+        WizardSettings.open({
+          mode: 'manager',
+          teamId: team.id,
+          onClose: (savedId) => { if (savedId) render(session); }
+        });
+      };
+      return;
+    }
+
+    // Configured team but real Dashboard not built yet — show the
+    // existing Phase 6 stub.
     main.innerHTML = `
       <div class="page-header">
         <div>
@@ -105,18 +144,101 @@ const ManagerView = (() => {
     `;
   }
 
-  // Phase 6: Import tab is now the home of "log work + bulk CSV". The
-  // existing Log Work flow renders inline; the existing bulk-CSV modal
-  // is reachable from a button at the top.
+  // Phase 6 part 4: Import tab is now a real two-section page.
+  //   1. Single-record form (the existing log-work flow)
+  //   2. Bulk CSV import (rendered inline, no modal)
   function renderImport(main, session) {
-    // delegate to existing renderLog — it already includes the bulk
-    // import button via CONFIG.FEATURES.csvImport. Just retitle the
-    // page header so users see "Import" instead of "Log Work".
-    renderLog(main, session);
-    const ph = main.querySelector('.page-header h2');
-    if (ph) ph.textContent = 'Import';
-    const sub = main.querySelector('.page-header .ph-sub');
-    if (sub) sub.textContent = 'Log a record or bulk-import from CSV';
+    const team = session.team;
+    const members = State.membersOfTeam(team.id);
+
+    // Page header + section 1 (single record) + section 2 (bulk CSV)
+    main.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>Import</h2>
+          <div class="ph-sub">Log a record or bulk-import from CSV</div>
+        </div>
+      </div>
+
+      <div class="card form-narrow">
+        <div class="card-head">
+          <span class="card-title">Log a Single Record</span>
+          <span class="muted text-xs">For one record at a time</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid-2">
+            <div class="form-row">
+              <label class="label">Date</label>
+              <input type="date" id="lw-date" value="${Utils.todayISO()}">
+            </div>
+            ${members.length ? `
+              <div class="form-row">
+                <label class="label">Member</label>
+                <select id="lw-member">${members.map(m => `<option value="${escape(m.email)}">${escape(m.displayName)}</option>`).join('')}</select>
+              </div>
+            ` : `
+              <div class="form-row">
+                <label class="label">Member</label>
+                <input value="${escape(session.user.displayName)} (you)" disabled>
+                <div class="helper">No team members yet — record will log against you.</div>
+              </div>
+            `}
+          </div>
+          <div class="form-row">
+            <label class="label">Work Unit</label>
+            <select id="lw-wu">${team.workUnits.length
+              ? team.workUnits.map(id => `<option value="${escape(id)}">${escape(LIBRARY.workUnitLabel(id, team.workUnitLabels))}</option>`).join('')
+              : '<option value="">No work units configured</option>'}</select>
+          </div>
+          ${team.fields.map(f => {
+            const def = LIBRARY.fieldDef(f);
+            if (!def) return '';
+            if (def.type === 'enum') {
+              return `<div class="form-row"><label class="label">${def.label}</label><select id="lw-${f}">${def.options.map(o=>`<option>${o}</option>`).join('')}</select></div>`;
+            }
+            return `<div class="form-row"><label class="label">${def.label}</label><input ${def.type==='number'?'type="number" step="0.01"':''} id="lw-${f}" placeholder="${def.hint}"></div>`;
+          }).join('')}
+          <div class="flex gap-8 mt-2">
+            <button class="btn btn-primary" id="lw-submit" ${team.workUnits.length===0?'disabled':''}>${Utils.icon('check',14)} Log Record</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="bulk-import-host"></div>
+    `;
+
+    // Single-record submit handler
+    document.getElementById('lw-submit').onclick = () => {
+      const date = document.getElementById('lw-date').value;
+      const wu = document.getElementById('lw-wu').value;
+      const memberEmail = members.length ? document.getElementById('lw-member').value : session.user.email;
+      if (!date || !wu) { Utils.toast('Date and work unit required','bad'); return; }
+      const fields = {};
+      team.fields.forEach(f => {
+        const el = document.getElementById('lw-'+f);
+        if (el) fields[f] = (LIBRARY.fieldDef(f)?.type === 'number') ? (parseFloat(el.value)||0) : el.value;
+      });
+      State.addRecord({ teamId: team.id, memberEmail, date, workUnit: wu, fields });
+      Utils.toast('Record logged!','good');
+      render(session); // re-render the import page so form clears
+    };
+
+    // Inline bulk CSV import (only if team has work units configured —
+    // otherwise the parser has nothing to validate against)
+    if (CONFIG.FEATURES.csvImport && team.workUnits.length > 0) {
+      CSVImport.renderInline(
+        document.getElementById('bulk-import-host'),
+        team, session,
+        { onCommit: () => render(session) }
+      );
+    } else if (team.workUnits.length === 0) {
+      document.getElementById('bulk-import-host').innerHTML = `
+        <div class="notice warn">
+          <strong>Bulk import unavailable:</strong> configure work units first
+          (Settings → Run Setup Wizard).
+        </div>
+      `;
+    }
   }
 
   // ============================================================

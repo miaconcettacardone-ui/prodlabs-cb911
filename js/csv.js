@@ -365,6 +365,108 @@ const CSVImport = (() => {
   // =========================================================
   //  PUBLIC API
   // =========================================================
-  return { parse, commit, templateFor };
+
+  // Render the bulk-import UI inline into a container element.
+  // This replaces the old modal-based flow when the Import tab is
+  // already a dedicated page. The single-record form lives separately
+  // in each view's renderImport(); this one only handles paste-CSV.
+  //
+  //   container = a DOM node to write into
+  //   team      = team record (for templateFor and parse context)
+  //   session   = needed only so a successful commit can trigger refresh
+  //   opts.onCommit = optional callback fired after successful import
+  function renderInline(container, team, session, opts) {
+    opts = opts || {};
+    const template = templateFor(team);
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Bulk Import</span>
+          <span class="muted text-xs">Paste CSV/TSV from Excel, Sheets, or any source</span>
+        </div>
+        <div class="card-body">
+          <p class="helper" style="margin-bottom:.75rem">
+            Paste rows below. First row must be headers.
+            Required columns: <strong>${CONFIG.CSV_REQUIRED_COLUMNS.join(', ')}</strong>.
+          </p>
+          <details class="helper" style="cursor:pointer;margin-bottom:.75rem">
+            <summary><strong>Show template &amp; tips</strong></summary>
+            <pre class="csv-template">${escapeHtml(template)}</pre>
+            <ul style="margin:8px 0 0 18px;font-size:12px;color:var(--mut)">
+              <li><strong>date</strong> — YYYY-MM-DD or M/D/YYYY</li>
+              <li><strong>member</strong> — display name OR email of someone on this team</li>
+              <li><strong>workUnit</strong> — id (e.g. ${team.workUnits[0]||'work_unit_id'}) or label</li>
+              <li>Other columns matched against your team's tracked fields (case-insensitive).</li>
+            </ul>
+          </details>
+          <textarea id="ci-text" rows="10" placeholder="Paste CSV/TSV here..." class="mono text-xs"></textarea>
+          <div id="ci-result" class="mt-2"></div>
+          <div class="flex gap-8 mt-2">
+            <button class="btn btn-ghost btn-sm" id="ci-validate">Validate</button>
+            <button class="btn btn-primary btn-sm" id="ci-commit" disabled>Import 0 rows</button>
+            <button class="btn btn-ghost btn-sm" id="ci-clear">Clear</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    let parsed = { rows: [], errors: [], warnings: [] };
+
+    const validate = () => {
+      const text = document.getElementById('ci-text').value;
+      parsed = parse(text, team);
+      const result = document.getElementById('ci-result');
+      const commitBtn = document.getElementById('ci-commit');
+      commitBtn.disabled = parsed.rows.length === 0;
+      commitBtn.textContent = `Import ${parsed.rows.length} row${parsed.rows.length!==1?'s':''}`;
+
+      const parts = [];
+      if (parsed.rows.length) {
+        parts.push(`<div class="notice success"><strong>${parsed.rows.length}</strong> valid row${parsed.rows.length!==1?'s':''} ready to import.</div>`);
+      }
+      if (parsed.errors.length) {
+        parts.push(`<div class="notice danger"><strong>${parsed.errors.length} error${parsed.errors.length!==1?'s':''}:</strong><ul class="csv-issue-list">${parsed.errors.slice(0,10).map(e=>`<li>${escapeHtml(e)}</li>`).join('')}${parsed.errors.length>10?`<li>... and ${parsed.errors.length-10} more</li>`:''}</ul></div>`);
+      }
+      if (parsed.warnings.length) {
+        parts.push(`<div class="notice warn"><strong>${parsed.warnings.length} warning${parsed.warnings.length!==1?'s':''}:</strong><ul class="csv-issue-list">${parsed.warnings.slice(0,10).map(e=>`<li>${escapeHtml(e)}</li>`).join('')}${parsed.warnings.length>10?`<li>... and ${parsed.warnings.length-10} more</li>`:''}</ul></div>`);
+      }
+      result.innerHTML = parts.join('');
+    };
+
+    // Tiny inline debounce — avoid pulling in a util just for this
+    let timer = null;
+    const debounced = () => {
+      clearTimeout(timer);
+      timer = setTimeout(validate, CONFIG.DEBOUNCE_MS_INPUT || 300);
+    };
+
+    document.getElementById('ci-text').oninput = debounced;
+    document.getElementById('ci-validate').onclick = validate;
+    document.getElementById('ci-clear').onclick = () => {
+      document.getElementById('ci-text').value = '';
+      document.getElementById('ci-result').innerHTML = '';
+      const commitBtn = document.getElementById('ci-commit');
+      commitBtn.disabled = true;
+      commitBtn.textContent = 'Import 0 rows';
+      parsed = { rows: [], errors: [], warnings: [] };
+    };
+    document.getElementById('ci-commit').onclick = () => {
+      if (!parsed.rows.length) return;
+      const n = commit(parsed.rows);
+      Utils.toast(`Imported ${n} record${n!==1?'s':''}`, 'good');
+      if (typeof opts.onCommit === 'function') opts.onCommit(n);
+    };
+  }
+
+  // Tiny escape helper used inside renderInline. Module-scoped so it
+  // doesn't pollute the outer namespace.
+  function escapeHtml(s) {
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  return { parse, commit, templateFor, renderInline };
 
 })();

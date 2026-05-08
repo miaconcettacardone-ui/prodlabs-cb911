@@ -73,21 +73,79 @@ const SuperView = (() => {
     `;
   }
 
+  // Phase 6 part 4: real Import tab for super admin.
+  // Super admins don't have a team in their session — they pick one
+  // first, then the bulk-CSV import runs against that team. Single-
+  // record logging stays on the manager/member side; admins use bulk
+  // import for backfill / data correction work.
   function renderImportStub(main, session) {
+    const teams = State.get().teams;
+    if (teams.length === 0) {
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h2>Import</h2>
+            <div class="ph-sub">Bulk import records to a team</div>
+          </div>
+        </div>
+        <div class="empty-stub">
+          ${Utils.icon('upload', 48)}
+          <h3>No teams yet</h3>
+          <p>Create a team first via Settings → Team Setup, then come back here to bulk-import records.</p>
+        </div>
+      `;
+      return;
+    }
+
     main.innerHTML = `
       <div class="page-header">
         <div>
           <h2>Import</h2>
-          <div class="ph-sub">Bulk upload of records, users, or team data</div>
+          <div class="ph-sub">Bulk import records to a team</div>
         </div>
       </div>
-      <div class="empty-stub">
-        ${Utils.icon('upload', 48)}
-        <h3>Import area coming in Phase 6</h3>
-        <p>Bulk import will live here — paste-CSV records, user roster uploads, and team configuration imports. Like Intelihub's pellbs import area.</p>
-        <p class="empty-stub-hint">CSV record import is currently available inside Manager → Activity.</p>
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">Pick a team</span></div>
+        <div class="card-body">
+          <p class="helper" style="margin-bottom:.75rem">
+            Select which team's records you're importing. The CSV format
+            depends on that team's configured work units and fields.
+          </p>
+          <div class="form-row">
+            <label class="label">Team</label>
+            <select id="imp-team">
+              <option value="">(select a team)</option>
+              ${teams.map(t => `<option value="${escape(t.id)}">${escape(t.name)}${t.department?' — '+escape(t.department):''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
       </div>
+
+      <div id="bulk-import-host"></div>
     `;
+
+    const teamSel = document.getElementById('imp-team');
+    const host = document.getElementById('bulk-import-host');
+
+    teamSel.onchange = () => {
+      const teamId = teamSel.value;
+      if (!teamId) { host.innerHTML = ''; return; }
+      const team = State.teamById(teamId);
+      if (!team) { host.innerHTML = ''; return; }
+      if (team.workUnits.length === 0) {
+        host.innerHTML = `
+          <div class="notice warn">
+            <strong>${escape(team.name)} isn't configured yet.</strong>
+            Run the team-setup wizard from Settings before importing records.
+          </div>
+        `;
+        return;
+      }
+      CSVImport.renderInline(host, team, session, {
+        onCommit: () => render(session)
+      });
+    };
   }
 
   function renderHistoryStub(main, session) {

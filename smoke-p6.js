@@ -1,5 +1,5 @@
 /* ============================================================
- *  smoke-p6.js — Phase 6 (parts 1, 2, 3) smoke test
+ *  smoke-p6.js — Phase 6 (parts 1, 2, 3, 4) smoke test
  * ============================================================
  *
  *  Run with:  node smoke-p6.js
@@ -27,12 +27,16 @@
  *   12. Phase 6 part 3: team-setup wizard from Settings tab
  *       (6-step flow, custom add at each picker step, cancel-mid-flow
  *       doesn't persist, manager mode pre-fills own team)
+ *   13. Phase 6 part 4: real Import tab + manager empty-state CTA
+ *       (manager Dashboard CTA when team unconfigured, manager Import
+ *       has both single-record + inline bulk CSV, member Import has
+ *       single-record only, super admin Import has team picker, full
+ *       end-to-end validate-and-commit on bulk import)
  *
- *  NOT covered (Phase 6 part 4+):
- *    - Real Dashboard tab implementation (currently stubbed)
+ *  NOT covered (Phase 6 part 5+):
+ *    - Real Dashboard tab implementation (currently stubbed for
+ *      configured-team case)
  *    - Real History/PDF reports (currently stubbed)
- *    - Real top-level Import refactor (currently a relabel of Log Work)
- *    - Manager empty-state CTA when team isn't configured
  *
  *  When those land, expand this test accordingly.
  * ============================================================ */
@@ -550,6 +554,172 @@ expect('Manager wizard pre-fills team name',
 
 // Close cleanly
 Utils.closeModal();
+
+// ----- 13. Phase 6 part 4: real Import tab + empty-state CTA -----
+console.log('\n[13] Real Import tab (single-record + bulk CSV) + empty-state CTA');
+
+// --- A. Manager dashboard shows empty-state CTA when team unconfigured ---
+State.reset();
+State.bootstrapDev();
+const emptyTeam = State.addTeam({
+  name: 'Empty Team', department: 'Alerts',
+  managerEmail: 'emptymgr@test.com',
+  workUnits: [], workUnitLabels: {},
+  fields: [], roles: [], goals: {},
+});
+State.addManager({
+  email: 'emptymgr@test.com', username: 'emptymgr', displayName: 'Empty Manager',
+  password: 'longpassword!', teamId: emptyTeam.id, approvedBy: '__test__',
+});
+State.setSession('manager', 'emptymgr@test.com');
+Router.go('app');
+// Explicitly click Dashboard — module-scoped tab state may have
+// drifted from previous tests
+window.document.querySelector('#app .tabs .tab[data-tab="dashboard"]').click();
+expect('Manager Dashboard shows empty-state CTA when team unconfigured',
+  !!window.document.getElementById('ds-wizard-launch'));
+expect('CTA wording mentions team name',
+  /Empty Team/.test(window.document.querySelector('#app-main').textContent));
+expect('CTA wording mentions display name',
+  /Empty/.test(window.document.querySelector('#app-main h3').textContent));
+
+// Click the CTA → opens wizard pre-filled with this team
+window.document.getElementById('ds-wizard-launch').click();
+expect('CTA click opens wizard',
+  !!window.document.querySelector('.wiz-modal'));
+expect('Wizard pre-filled with team name',
+  window.document.getElementById('w-name').value === 'Empty Team');
+Utils.closeModal();
+
+// --- B. Manager Import tab shows both single-record + bulk CSV when configured ---
+// First configure the team
+State.updateTeam(emptyTeam.id, {
+  workUnits: ['alert_handled', 'dispute_filed'],
+  fields: ['amount'],
+  roles: ['Analyst'],
+  goals: { alert_handled: 5 },
+});
+State.setSession('manager', 'emptymgr@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+expect('Manager Import tab shows page header "Import"',
+  /Import/.test(window.document.querySelector('#app-main h2').textContent));
+expect('Single-record form has date input',
+  !!window.document.getElementById('lw-date'));
+expect('Single-record form has work unit select',
+  !!window.document.getElementById('lw-wu'));
+expect('Single-record submit button enabled (team configured)',
+  !window.document.getElementById('lw-submit').disabled);
+expect('Bulk CSV section rendered inline (not modal)',
+  !!window.document.getElementById('ci-text'));
+expect('Bulk CSV has Validate button',
+  !!window.document.getElementById('ci-validate'));
+expect('Bulk CSV import button starts disabled',
+  window.document.getElementById('ci-commit').disabled === true);
+
+// --- C. Empty-team manager: bulk import shows warning, single-record disabled ---
+State.updateTeam(emptyTeam.id, {
+  workUnits: [], fields: [], roles: [], goals: {},
+});
+State.setSession('manager', 'emptymgr@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+expect('Empty-team: single-record submit is disabled',
+  window.document.getElementById('lw-submit').disabled === true);
+expect('Empty-team: bulk import shows warning notice',
+  /isn|configure|wizard|unavailable/i.test(window.document.getElementById('bulk-import-host').textContent));
+
+// Reconfigure for downstream tests
+State.updateTeam(emptyTeam.id, {
+  workUnits: ['alert_handled'],
+  fields: [],
+  roles: ['Analyst'],
+  goals: {},
+});
+
+// --- D. Member Import tab: single-record only, no bulk CSV ---
+State.addMember({
+  email: 'imember@test.com', username: 'imember', displayName: 'Import Member',
+  password: 'longpassword!', teamId: emptyTeam.id, role: 'Analyst', approvedBy: '__test__',
+});
+State.setSession('member', 'imember@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+expect('Member Import has single-record form',
+  !!window.document.getElementById('lw-date'));
+expect('Member Import has Log Record button',
+  !!window.document.getElementById('lw-submit'));
+expect('Member Import does NOT have bulk CSV section',
+  !window.document.getElementById('ci-text'));
+expect('Member Import retitled "Import"',
+  /^Import\b/.test(window.document.querySelector('#app-main h2').textContent));
+
+// --- E. Super admin Import: team picker → bulk import per team ---
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+expect('Super Import has team selector',
+  !!window.document.getElementById('imp-team'));
+expect('Super Import does NOT show bulk CSV before team picked',
+  !window.document.getElementById('ci-text'));
+
+// Pick the configured team
+const impTeamSel = window.document.getElementById('imp-team');
+impTeamSel.value = emptyTeam.id;
+impTeamSel.dispatchEvent(new window.Event('change'));
+expect('Super Import shows bulk CSV after team picked',
+  !!window.document.getElementById('ci-text'));
+
+// Pick another team that's still empty (no work units)
+const stillEmpty = State.addTeam({
+  name: 'Still Empty', department: 'Sales',
+  managerEmail: null,
+  workUnits: [], workUnitLabels: {},
+  fields: [], roles: [], goals: {},
+});
+State.setSession('super', 'devadmin@prodlabs.dev');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+const sel2 = window.document.getElementById('imp-team');
+sel2.value = stillEmpty.id;
+sel2.dispatchEvent(new window.Event('change'));
+expect('Super Import shows warning for unconfigured team',
+  /isn|configure|wizard/i.test(window.document.getElementById('bulk-import-host').textContent));
+expect('Super Import does NOT show CSV input for unconfigured team',
+  !window.document.getElementById('ci-text'));
+
+// --- F. End-to-end: actually log a single record via manager Import tab ---
+State.setSession('manager', 'emptymgr@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+const beforeRecCount = State.get().records.length;
+window.document.getElementById('lw-date').value = '2026-05-07';
+window.document.getElementById('lw-wu').value = 'alert_handled';
+window.document.getElementById('lw-submit').click();
+expect('Single-record submit creates a record',
+  State.get().records.length === beforeRecCount + 1);
+
+// --- G. End-to-end: validate and commit a CSV bulk import ---
+State.setSession('manager', 'emptymgr@test.com');
+Router.go('app');
+window.document.querySelector('#app .tabs .tab[data-tab="import"]').click();
+// Build a small valid CSV: 2 rows logging against the manager's team
+const csvText =
+  'date,member,workUnit\n' +
+  '2026-05-01,Import Member,alert_handled\n' +
+  '2026-05-02,Import Member,alert_handled\n';
+const csvTextArea = window.document.getElementById('ci-text');
+csvTextArea.value = csvText;
+window.document.getElementById('ci-validate').click();
+expect('Validate enables Import button',
+  window.document.getElementById('ci-commit').disabled === false);
+expect('Validate label shows row count',
+  /Import 2 rows/.test(window.document.getElementById('ci-commit').textContent));
+
+const beforeBulk = State.get().records.length;
+window.document.getElementById('ci-commit').click();
+expect('Bulk commit added 2 records',
+  State.get().records.length === beforeBulk + 2);
 
 // ----- summary -----
 console.log(`\n${pass} passed, ${fail} failed`);

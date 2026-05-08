@@ -72,7 +72,7 @@ const MemberView = (() => {
 
     if      (tab === 'dashboard') renderOverview(main, session);
     else if (tab === 'goals')     renderGoals(main, session);
-    else if (tab === 'import')    renderLog(main, session);
+    else if (tab === 'import')    renderImport(main, session);
     else if (tab === 'history')   renderHistory(main, session);
     else if (tab === 'messages')  InboxView.render(main, session, () => render(session));
     else if (tab === 'settings')  renderSettings(main, session);
@@ -391,6 +391,25 @@ const MemberView = (() => {
       // refresh via the global event bus.
       document.dispatchEvent(new CustomEvent('app:refresh'));
     };
+  }
+
+  // ============================================================
+  //  IMPORT TAB (Phase 6 part 4)
+  // ============================================================
+  // For members, Import is just the single-record form — bulk CSV
+  // is intentionally not exposed since the CSV format requires a
+  // `member` column and members shouldn't be logging against
+  // teammates. They can still rapid-fire single records here.
+  function renderImport(main, session) {
+    renderLog(main, session);
+    const ph = main.querySelector('.page-header h2');
+    if (ph) ph.textContent = 'Import';
+    const sub = main.querySelector('.page-header .ph-sub');
+    if (sub) sub.textContent = 'Log a record for yourself';
+    // Hide the cancel button — there's nothing to cancel back to on
+    // the dedicated Import tab. Submit just clears + re-renders.
+    const cancelBtn = main.querySelector('#lw-cancel');
+    if (cancelBtn) cancelBtn.remove();
   }
 
   // ============================================================
